@@ -1,5 +1,7 @@
 //! Library for parsing and compiling SimplicityHL
 
+pub extern crate simplicity_unchained;
+
 pub mod array;
 pub mod ast;
 pub mod compile;
@@ -21,8 +23,10 @@ mod witness;
 
 use std::sync::Arc;
 
-use simplicity::jet::elements::ElementsEnv;
-use simplicity::{jet::Elements, CommitNode, RedeemNode};
+use simplicity_unchained::jets::environments::UnchainedEnv;
+use simplicity_unchained::jets::unchained::ElementsExtension;
+
+use simplicity::{CommitNode, RedeemNode};
 
 pub extern crate either;
 pub extern crate simplicity;
@@ -96,7 +100,7 @@ impl TemplateProgram {
 /// A SimplicityHL program, compiled to Simplicity.
 #[derive(Clone, Debug)]
 pub struct CompiledProgram {
-    simplicity: Arc<named::CommitNode<Elements>>,
+    simplicity: Arc<named::CommitNode<ElementsExtension>>,
     witness_types: WitnessTypes,
     debug_symbols: DebugSymbols,
 }
@@ -123,7 +127,7 @@ impl CompiledProgram {
     }
 
     /// Access the Simplicity target code, without witness data.
-    pub fn commit(&self) -> Arc<CommitNode<Elements>> {
+    pub fn commit(&self) -> Arc<CommitNode<ElementsExtension>> {
         named::forget_names(&self.simplicity)
     }
 
@@ -147,7 +151,7 @@ impl CompiledProgram {
     pub fn satisfy_with_env(
         &self,
         witness_values: WitnessValues,
-        env: Option<&ElementsEnv<Arc<elements::Transaction>>>,
+        env: Option<&UnchainedEnv>,
     ) -> Result<SatisfiedProgram, String> {
         witness_values
             .is_consistent(&self.witness_types)
@@ -167,7 +171,7 @@ impl CompiledProgram {
 /// A SimplicityHL program, compiled to Simplicity and satisfied with witness data.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SatisfiedProgram {
-    simplicity: Arc<RedeemNode<Elements>>,
+    simplicity: Arc<RedeemNode<ElementsExtension>>,
     debug_symbols: DebugSymbols,
 }
 
@@ -190,7 +194,7 @@ impl SatisfiedProgram {
     }
 
     /// Access the Simplicity target code, including witness data.
-    pub fn redeem(&self) -> &Arc<RedeemNode<Elements>> {
+    pub fn redeem(&self) -> &Arc<RedeemNode<ElementsExtension>> {
         &self.simplicity
     }
 
@@ -387,7 +391,7 @@ pub(crate) mod tests {
         #[allow(dead_code)]
         pub fn print_sighash_all(self) -> Self {
             let env = dummy_env::dummy_with(self.lock_time, self.sequence, self.include_fee_output);
-            dbg!(env.c_tx_env().sighash_all());
+            dbg!(env.elements_env.c_tx_env().sighash_all());
             self
         }
     }

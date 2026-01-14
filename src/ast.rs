@@ -7,6 +7,7 @@ use std::sync::Arc;
 use either::Either;
 use miniscript::iter::{Tree, TreeLike};
 use simplicity::jet::Elements;
+use simplicity_unchained::jets::unchained::ElementsExtension;
 
 use crate::debug::{CallTracker, DebugSymbols, TrackedCallName};
 use crate::error::{Error, RichError, Span, WithSpan};
@@ -272,7 +273,7 @@ impl_eq_hash!(Call; name, args);
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum CallName {
     /// Elements jet.
-    Jet(Elements),
+    Jet(ElementsExtension),
     /// [`Either::unwrap_left`].
     UnwrapLeft(ResolvedType),
     /// [`Either::unwrap_right`].
@@ -1290,10 +1291,12 @@ impl AbstractSyntaxTree for CallName {
         scope: &mut Scope,
     ) -> Result<Self, RichError> {
         match from.name() {
-            parse::CallName::Jet(name) => match Elements::from_str(name.as_inner()) {
-                Ok(Elements::CheckSigVerify | Elements::Verify) | Err(_) => {
-                    Err(Error::JetDoesNotExist(name.clone())).with_span(from)
-                }
+            parse::CallName::Jet(name) => match ElementsExtension::from_str(name.as_inner()) {
+                Ok(
+                    ElementsExtension::Elements(Elements::CheckSigVerify)
+                    | ElementsExtension::Elements(Elements::Verify),
+                )
+                | Err(_) => Err(Error::JetDoesNotExist(name.clone())).with_span(from),
                 Ok(jet) => Ok(Self::Jet(jet)),
             },
             parse::CallName::UnwrapLeft(right_ty) => scope

@@ -4,13 +4,15 @@ use std::sync::Arc;
 
 use elements::{confidential, taproot::ControlBlock, AssetIssuance};
 use hashes::Hash;
-use simplicity::elements::{AssetId, TxOut};
+use simplicity::elements::hex::FromHex;
+use simplicity::elements::{AssetId, Script, TxOut};
 use simplicity::jet::elements::{ElementsEnv, ElementsUtxo};
 use simplicity::Cmr;
 use simplicity::{elements, hashes};
+use simplicity_unchained::jets::environments::UnchainedEnv;
 
 /// Return a dummy Elements environment.
-pub fn dummy() -> ElementsEnv<Arc<elements::Transaction>> {
+pub fn dummy() -> UnchainedEnv {
     dummy_with(elements::LockTime::ZERO, elements::Sequence::MAX, false)
 }
 
@@ -78,7 +80,13 @@ pub fn dummy_with(
     lock_time: elements::LockTime,
     sequence: elements::Sequence,
     include_fee_output: bool,
-) -> ElementsEnv<Arc<elements::Transaction>> {
+) -> UnchainedEnv {
+    let script = Script::from_hex(
+        "5221033523982d58e94be3b735731593f8225043880d53727235b566c515d24a0f7baf21025eb4655feae15a304653e27441ca8e8ced2bef89c22ab6b20424b4c07b3d14cc52ae"
+    ).unwrap();
+
     let default_tx = create_default_transaction(lock_time, sequence, include_fee_output);
-    dummy_with_tx(default_tx)
+    let elements_tx = dummy_with_tx(default_tx);
+
+    UnchainedEnv::new(script, elements_tx)
 }

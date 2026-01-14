@@ -203,9 +203,10 @@ impl LanguageServer for Backend {
 
         let description = match call.name() {
             parse::CallName::Jet(jet) => {
-                let element =
-                    simplicityhl::simplicity::jet::Elements::from_str(format!("{jet}").as_str())
-                        .map_err(|err| LspError::ConversionFailed(err.to_string()))?;
+                let element = simplicityhl::simplicity::jet::ElementsExtension::from_str(
+                    format!("{jet}").as_str(),
+                )
+                .map_err(|err| LspError::ConversionFailed(err.to_string()))?;
 
                 let template = completion::jet::jet_to_template(element);
                 format!(

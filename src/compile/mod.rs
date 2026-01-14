@@ -4,6 +4,8 @@ mod builtins;
 
 use std::sync::Arc;
 
+use simplicity_unchained::jets::unchained::ElementsExtension;
+
 use either::Either;
 use simplicity::jet::Elements;
 use simplicity::node::{CoreConstructible as _, JetConstructible as _};
@@ -26,7 +28,7 @@ use crate::value::StructuralValue;
 use crate::witness::Arguments;
 use crate::Value;
 
-type ProgNode<'brand> = Arc<named::ConstructNode<'brand, Elements>>;
+type ProgNode<'brand> = Arc<named::ConstructNode<'brand, ElementsExtension>>;
 
 /// Each SimplicityHL expression expects an _input value_.
 /// A SimplicityHL expression is translated into a Simplicity expression
@@ -263,7 +265,7 @@ impl Program {
         &self,
         arguments: Arguments,
         include_debug_symbols: bool,
-    ) -> Result<Arc<named::CommitNode<Elements>>, RichError> {
+    ) -> Result<Arc<named::CommitNode<ElementsExtension>>, RichError> {
         types::Context::with_context(|ctx| {
             let mut scope = Scope::new(
                 ctx,
@@ -410,7 +412,7 @@ impl Call {
                 args.comp(&body).with_span(self)
             }
             CallName::Assert => {
-                let jet = ProgNode::jet(scope.ctx(), Elements::Verify);
+                let jet = ProgNode::jet(scope.ctx(), ElementsExtension::Elements(Elements::Verify));
                 scope.with_debug_symbol(args, &jet, self)
             }
             CallName::Panic => {

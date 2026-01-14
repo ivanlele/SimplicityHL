@@ -134,8 +134,10 @@ wrapped_string!(JetName, "jet name");
 #[cfg(feature = "arbitrary")]
 impl<'a> arbitrary::Arbitrary<'a> for JetName {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        u.choose(&simplicity::jet::Elements::ALL)
-            .map(simplicity::jet::Elements::to_string)
+        use simplicity_unchained::jets::unchained::ElementsExtension;
+
+        u.choose(&ElementsExtension::ALL)
+            .map(ElementsExtension::to_string)
             .map(Arc::from)
             .map(Self)
     }

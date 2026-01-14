@@ -34,6 +34,8 @@ itertools = "0.13.0"
 arbitrary = { version = "1", optional = true, features = ["derive"] }
 clap = "4.5.37"
 
+simplicity-unchained = { git = "https://github.com/ivanlele/simplicity-unchained.git", rev = "3d3d390519c37f6e53ad9851a9e4b558ef69ae41", package = "core"} 
+
 [target.wasm32-unknown-unknown.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
 

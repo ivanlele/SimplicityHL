@@ -1,5 +1,7 @@
+use simplicity_unchained::jets::unchained::ElementsExtension;
+
 use simplicity::bit_machine::{ExecTracker, FrameIter, NodeOutput, PruneTracker, SetTracker};
-use simplicity::jet::{Elements, Jet};
+use simplicity::jet::Jet;
 use simplicity::node::Inner;
 use simplicity::{Ihr, RedeemNode, Value as SimValue, ValueRef};
 
@@ -21,7 +23,7 @@ type DebugSink<'a> = Box<dyn FnMut(&str, &Value) + 'a>;
 ///
 /// Arguments are: the jet that was executed, its input arguments (if successfully parsed),
 /// and the result (`None` if the jet failed).
-type JetTraceSink<'a> = Box<dyn FnMut(Elements, Option<&[Value]>, Option<Value>) + 'a>;
+type JetTraceSink<'a> = Box<dyn FnMut(ElementsExtension, Option<&[Value]>, Option<Value>) + 'a>;
 
 /// Callback signature for receiving warnings during execution.
 type WarningSink<'a> = Box<dyn Fn(&str) + 'a>;
@@ -42,7 +44,7 @@ fn default_debug_sink(label: &str, value: &Value) {
 }
 
 /// Default jet trace sink that prints jet calls to stderr.
-fn default_jet_trace_sink(jet: Elements, args: Option<&[Value]>, result: Option<Value>) {
+fn default_jet_trace_sink(jet: ElementsExtension, args: Option<&[Value]>, result: Option<Value>) {
     print!("{jet:?}(");
     if let Some(args) = args {
         for (i, arg) in args.iter().enumerate() {
@@ -119,7 +121,7 @@ impl<'a> DefaultTracker<'a> {
     /// Enables forwarding of jet call traces to the provided sink.
     pub fn with_jet_trace_sink<F>(mut self, sink: F) -> Self
     where
-        F: FnMut(Elements, Option<&[Value]>, Option<Value>) + 'a,
+        F: FnMut(ElementsExtension, Option<&[Value]>, Option<Value>) + 'a,
     {
         self.jet_trace_sink = Some(Box::new(sink));
         self
@@ -173,8 +175,8 @@ impl<'a> DefaultTracker<'a> {
     /// Handles jet node execution by decoding arguments and results.
     fn handle_jet(
         &mut self,
-        node: &RedeemNode<Elements>,
-        jet: Elements,
+        node: &RedeemNode<ElementsExtension>,
+        jet: ElementsExtension,
         input: &FrameIter,
         output: &NodeOutput,
     ) {
@@ -213,8 +215,8 @@ impl<'a> DefaultTracker<'a> {
 
     /// Parses the result of a jet execution from the output frame.
     fn parse_jet_result(
-        node: &RedeemNode<Elements>,
-        jet: Elements,
+        node: &RedeemNode<ElementsExtension>,
+        jet: ElementsExtension,
         output: &NodeOutput,
     ) -> Option<Value> {
         match output.clone() {
@@ -248,7 +250,7 @@ impl<'a> DefaultTracker<'a> {
     /// Handles debug node execution by resolving symbols and decoding values.
     fn handle_debug(
         &mut self,
-        node: &RedeemNode<Elements>,
+        node: &RedeemNode<ElementsExtension>,
         input: &FrameIter,
         cmr: &simplicity::Cmr,
     ) {
@@ -290,9 +292,9 @@ impl<'a> DefaultTracker<'a> {
     }
 }
 
-impl PruneTracker<Elements> for DefaultTracker<'_> {
+impl PruneTracker<ElementsExtension> for DefaultTracker<'_> {
     fn contains_left(&self, ihr: Ihr) -> bool {
-        if PruneTracker::<Elements>::contains_left(&self.inner, ihr) {
+        if PruneTracker::<ElementsExtension>::contains_left(&self.inner, ihr) {
             return true;
         }
 
@@ -304,7 +306,7 @@ impl PruneTracker<Elements> for DefaultTracker<'_> {
     }
 
     fn contains_right(&self, ihr: Ihr) -> bool {
-        if PruneTracker::<Elements>::contains_right(&self.inner, ihr) {
+        if PruneTracker::<ElementsExtension>::contains_right(&self.inner, ihr) {
             return true;
         }
 
@@ -316,8 +318,13 @@ impl PruneTracker<Elements> for DefaultTracker<'_> {
     }
 }
 
-impl ExecTracker<Elements> for DefaultTracker<'_> {
-    fn visit_node(&mut self, node: &RedeemNode<Elements>, input: FrameIter, output: NodeOutput) {
+impl ExecTracker<ElementsExtension> for DefaultTracker<'_> {
+    fn visit_node(
+        &mut self,
+        node: &RedeemNode<ElementsExtension>,
+        input: FrameIter,
+        output: NodeOutput,
+    ) {
         match node.inner() {
             Inner::Jet(jet) => self.handle_jet(node, *jet, &input, &output),
             Inner::AssertL(_, cmr) => self.handle_debug(node, &input, cmr),
@@ -329,7 +336,10 @@ impl ExecTracker<Elements> for DefaultTracker<'_> {
 }
 
 /// Parses jet input arguments from the bit machine's read frame.
-fn parse_jet_arguments(jet: Elements, input_frame: &mut FrameIter) -> Result<Vec<Value>, String> {
+fn parse_jet_arguments(
+    jet: ElementsExtension,
+    input_frame: &mut FrameIter,
+) -> Result<Vec<Value>, String> {
     let source_types = source_type(jet);
     if source_types.is_empty() {
         return Ok(vec![]);
@@ -389,11 +399,13 @@ mod tests {
     use std::rc::Rc;
     use std::sync::Arc;
 
+    use simplicity::elements::hex::FromHex;
     use simplicity::elements::taproot::ControlBlock;
     use simplicity::elements::BlockHash;
     use simplicity::elements::{self, pset::PartiallySignedTransaction};
     use simplicity::jet::elements::{ElementsEnv, ElementsUtxo};
     use simplicity::Cmr;
+    use simplicity_unchained::jets::environments::UnchainedEnv;
 
     use crate::elements::confidential::Asset;
     use crate::elements::hashes::Hash;
@@ -450,12 +462,16 @@ mod tests {
         (tracker, debug_store, jet_store)
     }
 
-    fn create_test_env() -> ElementsEnv<Arc<elements::Transaction>> {
+    fn create_test_env() -> UnchainedEnv {
+        let script = Script::from_hex(
+            "5221033523982d58e94be3b735731593f8225043880d53727235b566c515d24a0f7baf21025eb4655feae15a304653e27441ca8e8ced2bef89c22ab6b20424b4c07b3d14cc52ae"
+        ).unwrap();
+
         let mut tx = PartiallySignedTransaction::new_v2();
         let outpoint = OutPoint::new(Txid::from_slice(&[2; 32]).unwrap(), 33);
         tx.add_input(Input::from_prevout(outpoint));
 
-        ElementsEnv::new(
+        let elements_env = ElementsEnv::new(
             Arc::new(tx.extract_tx().unwrap()),
             vec![ElementsUtxo {
                 script_pubkey: Script::new(),
@@ -467,7 +483,9 @@ mod tests {
             ControlBlock::from_slice(&[0xc0; 33]).unwrap(),
             None,
             BlockHash::all_zeros(),
-        )
+        );
+
+        UnchainedEnv::new(script, elements_env)
     }
 
     #[test]
