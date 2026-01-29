@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
+use simplicity::jet::Jet;
 use simplicity::node::CoreConstructible;
 
 use super::ProgNode;
@@ -15,15 +16,15 @@ use crate::named::CoreExt;
 /// The fold `(fold f)_n : E^n × A → A`
 /// takes the array of type `E^n` and an initial accumulator of type `A`,
 /// and it produces the final accumulator of type `A`.
-pub fn array_fold<'brand>(
+pub fn array_fold<'brand, J: Jet>(
     size: NonZeroUsize,
-    f: &ProgNode<'brand>,
-) -> Result<ProgNode<'brand>, simplicity::types::Error> {
+    f: &ProgNode<'brand, J>,
+) -> Result<ProgNode<'brand, J>, simplicity::types::Error> {
     /// Recursively fold the array using the precomputed folding functions.
-    fn tree_fold<'brand>(
+    fn tree_fold<'brand, J: Jet>(
         n: usize,
-        f_powers_of_two: &[ProgNode<'brand>],
-    ) -> Result<ProgNode<'brand>, simplicity::types::Error> {
+        f_powers_of_two: &[ProgNode<'brand, J>],
+    ) -> Result<ProgNode<'brand, J>, simplicity::types::Error> {
         // Array is a left-balanced (right-associative) binary tree.
         let max_pow2 = n.ilog2() as usize;
         debug_assert!(max_pow2 < f_powers_of_two.len());
@@ -41,10 +42,10 @@ pub fn array_fold<'brand>(
     }
 
     /// Fold the two arrays applying the folding function sequentially left -> right.
-    fn f_array_fold<'brand>(
-        f_left: &ProgNode<'brand>,
-        f_right: &ProgNode<'brand>,
-    ) -> Result<ProgNode<'brand>, simplicity::types::Error> {
+    fn f_array_fold<'brand, J: Jet>(
+        f_left: &ProgNode<'brand, J>,
+        f_right: &ProgNode<'brand, J>,
+    ) -> Result<ProgNode<'brand, J>, simplicity::types::Error> {
         // The input is a tuple ((L, R), acc): ([E; n], A) where:
         // - L and R are arrays of varying size E^x and E^y respectively (x + y = n).
         // - acc is an accumulator of type A.
@@ -59,7 +60,7 @@ pub fn array_fold<'brand>(
 
     // Precompute the folding functions for arrays of size 2^i where i < n.
     let n = size.get();
-    let mut f_powers_of_two: Vec<ProgNode> = Vec::with_capacity(1 + n.ilog2() as usize);
+    let mut f_powers_of_two: Vec<ProgNode<'brand, J>> = Vec::with_capacity(1 + n.ilog2() as usize);
 
     // An array of size 1 is just the element itself, so f_array_fold_1 is the same as the folding function.
     let mut f_prev = f.clone();
@@ -77,11 +78,13 @@ pub fn array_fold<'brand>(
 
 #[cfg(test)]
 mod tests {
-    use crate::{tests::TestCase, WitnessValues};
+    use simplicity_unchained::jets::elements::ElementsExtension;
+
+    use crate::{tests::TestCase, CompiledProgram, WitnessValues};
 
     #[test]
     fn array_fold() {
-        TestCase::program_file("./examples/array_fold.simf")
+        TestCase::<CompiledProgram<ElementsExtension>>::program_file("./examples/array_fold.simf")
             .with_witness_values(WitnessValues::default())
             .assert_run_success();
     }

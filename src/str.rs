@@ -2,6 +2,8 @@
 
 use std::sync::Arc;
 
+use simplicity::jet::Jet;
+
 /// Implementations for newtypes that wrap [`Arc<str>`].
 macro_rules! wrapped_string {
     ($wrapper:ident, $name:expr) => {
@@ -37,6 +39,48 @@ macro_rules! wrapped_string {
         }
 
         impl std::fmt::Debug for $wrapper {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                std::fmt::Display::fmt(&self.0, f)
+            }
+        }
+    };
+}
+
+/// Implementations for newtypes that wrap [`Arc<str>`].
+macro_rules! wrapped_string_generic {
+    ($wrapper:ident, $name:expr) => {
+        impl<J: Jet> $wrapper<J> {
+            #[doc = "Create a"]
+            #[doc = $name]
+            #[doc = ".\n\n"]
+            #[doc = "## Precondition\n\n"]
+            #[doc = "The string must be a valid"]
+            #[doc = $name]
+            #[doc = ".\n\n"]
+            #[doc = "## Panics\n\n"]
+            #[doc = "Panics may occur down the line if the precondition is not satisfied."]
+            pub fn from_str_unchecked(s: &str) -> Self {
+                Self(Arc::from(s), std::marker::PhantomData)
+            }
+
+            /// Access the inner string.
+            pub fn as_inner(&self) -> &str {
+                self.0.as_ref()
+            }
+
+            /// Make a cheap copy of the name.
+            pub fn shallow_clone(&self) -> Self {
+                Self(Arc::clone(&self.0), std::marker::PhantomData)
+            }
+        }
+
+        impl<J: Jet> std::fmt::Display for $wrapper<J> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                std::fmt::Display::fmt(&self.0, f)
+            }
+        }
+
+        impl<J: Jet> std::fmt::Debug for $wrapper<J> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 std::fmt::Display::fmt(&self.0, f)
             }
@@ -127,19 +171,29 @@ impl_arbitrary_lowercase_alpha!(WitnessName);
 
 /// The name of a jet.
 #[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct JetName(Arc<str>);
+pub struct JetName<J: Jet>(Arc<str>, std::marker::PhantomData<J>);
 
-wrapped_string!(JetName, "jet name");
+wrapped_string_generic!(JetName, "jet name");
 
 #[cfg(feature = "arbitrary")]
-impl<'a> arbitrary::Arbitrary<'a> for JetName {
+impl<'a, J: Jet> arbitrary::Arbitrary<'a> for JetName<J> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        use simplicity_unchained::jets::unchained::ElementsExtension;
+        use simplicity_unchained::jets::bitcoin::CoreExtension;
+        use simplicity_unchained::jets::elements::ElementsExtension;
 
-        u.choose(&ElementsExtension::ALL)
-            .map(ElementsExtension::to_string)
-            .map(Arc::from)
-            .map(Self)
+        if std::any::TypeId::of::<J>() == std::any::TypeId::of::<ElementsExtension>() {
+            u.choose(&ElementsExtension::ALL)
+                .map(ElementsExtension::to_string)
+                .map(Arc::from)
+                .map(|arc| Self(arc, std::marker::PhantomData))
+        } else if std::any::TypeId::of::<J>() == std::any::TypeId::of::<CoreExtension>() {
+            u.choose(&CoreExtension::ALL)
+                .map(CoreExtension::to_string)
+                .map(Arc::from)
+                .map(|arc| Self(arc, std::marker::PhantomData))
+        } else {
+            panic!("Unsupported jet type for JetName::arbitrary")
+        }
     }
 }
 

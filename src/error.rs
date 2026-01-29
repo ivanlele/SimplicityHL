@@ -6,7 +6,7 @@ use simplicity::hashes::{sha256, Hash, HashEngine};
 use simplicity::{elements, Cmr};
 
 use crate::parse::{MatchPattern, Rule};
-use crate::str::{AliasName, FunctionName, Identifier, JetName, ModuleName, WitnessName};
+use crate::str::{AliasName, FunctionName, Identifier, ModuleName, WitnessName};
 use crate::types::{ResolvedType, UIntType};
 
 /// Position of an object inside a file.
@@ -314,7 +314,7 @@ pub enum Error {
     // The SimplicityHL compiler should never produce ill-typed Simplicity code
     // The compiler can only be this precise if it knows a type system at least as expressive as Simplicity's
     CannotCompile(String),
-    JetDoesNotExist(JetName),
+    JetDoesNotExist(String),
     InvalidCast(ResolvedType, ResolvedType),
     MainNoInputs,
     MainNoOutput,

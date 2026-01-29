@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use serde::{de, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
+use simplicity::jet::Jet;
 
 use crate::parse::ParseFromStr;
 use crate::str::WitnessName;
@@ -9,10 +10,10 @@ use crate::types::ResolvedType;
 use crate::value::Value;
 use crate::witness::{Arguments, WitnessValues};
 
-struct WitnessMapVisitor;
+struct WitnessMapVisitor<J: Jet>(std::marker::PhantomData<J>);
 
-impl<'de> de::Visitor<'de> for WitnessMapVisitor {
-    type Value = HashMap<WitnessName, Value>;
+impl<'de, J: Jet> de::Visitor<'de> for WitnessMapVisitor<J> {
+    type Value = HashMap<WitnessName, Value<J>>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("a map with string keys and value-map values")
@@ -23,7 +24,7 @@ impl<'de> de::Visitor<'de> for WitnessMapVisitor {
         M: de::MapAccess<'de>,
     {
         let mut map = HashMap::new();
-        while let Some((key, value)) = access.next_entry::<WitnessName, Value>()? {
+        while let Some((key, value)) = access.next_entry::<WitnessName, Value<J>>()? {
             if map.insert(key.shallow_clone(), value).is_some() {
                 return Err(de::Error::custom(format!("Name `{key}` is assigned twice")));
             }
@@ -32,32 +33,32 @@ impl<'de> de::Visitor<'de> for WitnessMapVisitor {
     }
 }
 
-impl<'de> Deserialize<'de> for WitnessValues {
+impl<'de, J: Jet> Deserialize<'de> for WitnessValues<J> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         deserializer
-            .deserialize_map(WitnessMapVisitor)
+            .deserialize_map(WitnessMapVisitor::<J>(std::marker::PhantomData))
             .map(Self::from)
     }
 }
 
-impl<'de> Deserialize<'de> for Arguments {
+impl<'de, J: Jet> Deserialize<'de> for Arguments<J> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         deserializer
-            .deserialize_map(WitnessMapVisitor)
+            .deserialize_map(WitnessMapVisitor::<J>(std::marker::PhantomData))
             .map(Self::from)
     }
 }
 
-struct ValueMapVisitor;
+struct ValueMapVisitor<J: Jet>(std::marker::PhantomData<J>);
 
-impl<'de> de::Visitor<'de> for ValueMapVisitor {
-    type Value = Value;
+impl<'de, J: Jet> de::Visitor<'de> for ValueMapVisitor<J> {
+    type Value = Value<J>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("a map with \"value\" and \"type\" fields")
@@ -101,12 +102,12 @@ impl<'de> de::Visitor<'de> for ValueMapVisitor {
     }
 }
 
-impl<'de> Deserialize<'de> for Value {
+impl<'de, J: Jet> Deserialize<'de> for Value<J> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_map(ValueMapVisitor)
+        deserializer.deserialize_map(ValueMapVisitor::<J>(std::marker::PhantomData))
     }
 }
 
@@ -136,9 +137,9 @@ impl<'de> Deserialize<'de> for WitnessName {
     }
 }
 
-struct WitnessMapSerializer<'a>(&'a HashMap<WitnessName, Value>);
+struct WitnessMapSerializer<'a, J: Jet>(&'a HashMap<WitnessName, Value<J>>);
 
-impl<'a> Serialize for WitnessMapSerializer<'a> {
+impl<'a, J: Jet> Serialize for WitnessMapSerializer<'a, J> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -151,9 +152,9 @@ impl<'a> Serialize for WitnessMapSerializer<'a> {
     }
 }
 
-struct ValueMapSerializer<'a>(&'a Value);
+struct ValueMapSerializer<'a, J: Jet>(&'a Value<J>);
 
-impl<'a> Serialize for ValueMapSerializer<'a> {
+impl<'a, J: Jet> Serialize for ValueMapSerializer<'a, J> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -165,7 +166,7 @@ impl<'a> Serialize for ValueMapSerializer<'a> {
     }
 }
 
-impl Serialize for WitnessValues {
+impl<J: Jet> Serialize for WitnessValues<J> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -174,7 +175,7 @@ impl Serialize for WitnessValues {
     }
 }
 
-impl Serialize for Arguments {
+impl<J: Jet> Serialize for Arguments<J> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -185,6 +186,8 @@ impl Serialize for Arguments {
 
 #[cfg(test)]
 mod tests {
+    use simplicity_unchained::jets::elements::ElementsExtension;
+
     use super::*;
 
     #[test]
@@ -194,7 +197,7 @@ mod tests {
   "A": { "value": "43", "type": "u16" }
 }"#;
 
-        match serde_json::from_str::<WitnessValues>(s) {
+        match serde_json::from_str::<WitnessValues<ElementsExtension>>(s) {
             Ok(_) => panic!("Duplicate witness assignment was falsely accepted"),
             Err(error) => assert!(error.to_string().contains("Name `A` is assigned twice")),
         }

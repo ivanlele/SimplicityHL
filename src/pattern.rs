@@ -444,7 +444,7 @@ mod tests {
     use super::*;
     use crate::named;
 
-    use simplicity_unchained::jets::unchained::ElementsExtension;
+    use simplicity_unchained::jets::elements::ElementsExtension;
 
     #[test]
     fn translate_pattern() {

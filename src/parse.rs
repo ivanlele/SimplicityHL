@@ -11,6 +11,7 @@ use itertools::Itertools;
 use miniscript::iter::{Tree, TreeLike};
 use pest::Parser;
 use pest_derive::Parser;
+use simplicity::jet::Jet;
 
 use crate::error::{Error, RichError, Span, WithFile, WithSpan};
 use crate::impl_eq_hash;
@@ -28,43 +29,42 @@ struct IdentParser;
 
 /// A program is a sequence of items.
 #[derive(Clone, Debug)]
-pub struct Program {
-    items: Arc<[Item]>,
+pub struct Program<J: Jet> {
+    items: Arc<[Item<J>]>,
     span: Span,
 }
 
-impl Program {
+impl<J: Jet> Program<J> {
     /// Access the items of the program.
-    pub fn items(&self) -> &[Item] {
+    pub fn items(&self) -> &[Item<J>] {
         &self.items
     }
 }
 
-impl_eq_hash!(Program; items);
+impl_eq_hash!(Program<J: Jet>; items);
 
 /// An item is a component of a program.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-pub enum Item {
+pub enum Item<J: Jet> {
     /// A type alias.
     TypeAlias(TypeAlias),
     /// A function.
-    Function(Function),
+    Function(Function<J>),
     /// A module, which is ignored.
     Module,
 }
 
 /// Definition of a function.
 #[derive(Clone, Debug)]
-pub struct Function {
+pub struct Function<J: Jet> {
     name: FunctionName,
     params: Arc<[FunctionParam]>,
     ret: Option<AliasedType>,
-    body: Expression,
+    body: Expression<J>,
     span: Span,
 }
 
-impl Function {
+impl<J: Jet> Function<J> {
     /// Access the name of the function.
     pub fn name(&self) -> &FunctionName {
         &self.name
@@ -83,7 +83,7 @@ impl Function {
     }
 
     /// Access the body of the function.
-    pub fn body(&self) -> &Expression {
+    pub fn body(&self) -> &Expression<J> {
         &self.body
     }
 
@@ -93,7 +93,7 @@ impl Function {
     }
 }
 
-impl_eq_hash!(Function; name, params, ret, body);
+impl_eq_hash!(Function<J: Jet>; name, params, ret, body);
 
 /// Parameter of a function.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -117,23 +117,23 @@ impl FunctionParam {
 
 /// A statement is a component of a block expression.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum Statement {
+pub enum Statement<J: Jet> {
     /// A declaration of variables inside a pattern.
-    Assignment(Assignment),
+    Assignment(Assignment<J>),
     /// An expression that returns nothing (the unit value).
-    Expression(Expression),
+    Expression(Expression<J>),
 }
 
 /// The output of an expression is assigned to a pattern.
 #[derive(Clone, Debug)]
-pub struct Assignment {
+pub struct Assignment<J: Jet> {
     pattern: Pattern,
     ty: AliasedType,
-    expression: Expression,
+    expression: Expression<J>,
     span: Span,
 }
 
-impl Assignment {
+impl<J: Jet> Assignment<J> {
     /// Access the pattern of the assignment.
     pub fn pattern(&self) -> &Pattern {
         &self.pattern
@@ -145,7 +145,7 @@ impl Assignment {
     }
 
     /// Access the assigned expression.
-    pub fn expression(&self) -> &Expression {
+    pub fn expression(&self) -> &Expression<J> {
         &self.expression
     }
 
@@ -155,24 +155,24 @@ impl Assignment {
     }
 }
 
-impl_eq_hash!(Assignment; pattern, ty, expression);
+impl_eq_hash!(Assignment<J: Jet>; pattern, ty, expression);
 
 /// Call expression.
 #[derive(Clone, Debug)]
-pub struct Call {
-    name: CallName,
-    args: Arc<[Expression]>,
+pub struct Call<J: Jet> {
+    name: CallName<J>,
+    args: Arc<[Expression<J>]>,
     span: Span,
 }
 
-impl Call {
+impl<J: Jet> Call<J> {
     /// Access the name of the call.
-    pub fn name(&self) -> &CallName {
+    pub fn name(&self) -> &CallName<J> {
         &self.name
     }
 
     /// Access the arguments to the call.
-    pub fn args(&self) -> &[Expression] {
+    pub fn args(&self) -> &[Expression<J>] {
         self.args.as_ref()
     }
 
@@ -182,14 +182,14 @@ impl Call {
     }
 }
 
-impl_eq_hash!(Call; name, args);
+impl_eq_hash!(Call<J: Jet>; name, args);
 
 /// Name of a call.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-pub enum CallName {
+pub enum CallName<J: Jet> {
     /// Name of a jet.
-    Jet(JetName),
+    Jet(JetName<J>),
     /// [`Either::unwrap_left`].
     UnwrapLeft(AliasedType),
     /// [`Either::unwrap_right`].
@@ -249,14 +249,14 @@ impl_eq_hash!(TypeAlias; name, ty);
 
 /// An expression is something that returns a value.
 #[derive(Clone, Debug)]
-pub struct Expression {
-    inner: ExpressionInner,
+pub struct Expression<J: Jet> {
+    inner: ExpressionInner<J>,
     span: Span,
 }
 
-impl Expression {
+impl<J: Jet> Expression<J> {
     /// Access the inner expression.
-    pub fn inner(&self) -> &ExpressionInner {
+    pub fn inner(&self) -> &ExpressionInner<J> {
         &self.inner
     }
 
@@ -278,29 +278,29 @@ impl Expression {
     }
 }
 
-impl_eq_hash!(Expression; inner);
+impl_eq_hash!(Expression<J: Jet>; inner);
 
 /// The kind of expression.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum ExpressionInner {
+pub enum ExpressionInner<J: Jet> {
     /// A single expression directly returns a value.
-    Single(SingleExpression),
+    Single(SingleExpression<J>),
     /// A block expression first executes a series of statements inside a local scope.
     /// Then, the block returns the value of its final expression.
     /// The block returns nothing (unit) if there is no final expression.
-    Block(Arc<[Statement]>, Option<Arc<Expression>>),
+    Block(Arc<[Statement<J>]>, Option<Arc<Expression<J>>>),
 }
 
 /// A single expression directly returns a value.
 #[derive(Clone, Debug)]
-pub struct SingleExpression {
-    inner: SingleExpressionInner,
+pub struct SingleExpression<J: Jet> {
+    inner: SingleExpressionInner<J>,
     span: Span,
 }
 
-impl SingleExpression {
+impl<J: Jet> SingleExpression<J> {
     /// Access the inner expression.
-    pub fn inner(&self) -> &SingleExpressionInner {
+    pub fn inner(&self) -> &SingleExpressionInner<J> {
         &self.inner
     }
 
@@ -310,15 +310,15 @@ impl SingleExpression {
     }
 }
 
-impl_eq_hash!(SingleExpression; inner);
+impl_eq_hash!(SingleExpression<J: Jet>; inner);
 
 /// The kind of single expression.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum SingleExpressionInner {
+pub enum SingleExpressionInner<J: Jet> {
     /// Either wrapper expression
-    Either(Either<Arc<Expression>, Arc<Expression>>),
+    Either(Either<Arc<Expression<J>>, Arc<Expression<J>>>),
     /// Option wrapper expression
-    Option(Option<Arc<Expression>>),
+    Option(Option<Arc<Expression<J>>>),
     /// Boolean literal expression
     Boolean(bool),
     /// Decimal string literal.
@@ -334,43 +334,43 @@ pub enum SingleExpressionInner {
     /// Variable identifier expression
     Variable(Identifier),
     /// Function call
-    Call(Call),
+    Call(Call<J>),
     /// Expression in parentheses
-    Expression(Arc<Expression>),
+    Expression(Arc<Expression<J>>),
     /// Match expression over a sum type
-    Match(Match),
+    Match(Match<J>),
     /// Tuple wrapper expression
-    Tuple(Arc<[Expression]>),
+    Tuple(Arc<[Expression<J>]>),
     /// Array wrapper expression
-    Array(Arc<[Expression]>),
+    Array(Arc<[Expression<J>]>),
     /// List wrapper expression
     ///
     /// The exclusive upper bound on the list size is not known at this point
-    List(Arc<[Expression]>),
+    List(Arc<[Expression<J>]>),
 }
 
 /// Match expression.
 #[derive(Clone, Debug)]
-pub struct Match {
-    scrutinee: Arc<Expression>,
-    left: MatchArm,
-    right: MatchArm,
+pub struct Match<J: Jet> {
+    scrutinee: Arc<Expression<J>>,
+    left: MatchArm<J>,
+    right: MatchArm<J>,
     span: Span,
 }
 
-impl Match {
+impl<J: Jet> Match<J> {
     /// Access the expression that is matched.
-    pub fn scrutinee(&self) -> &Expression {
+    pub fn scrutinee(&self) -> &Expression<J> {
         &self.scrutinee
     }
 
     /// Access the match arm for left sum values.
-    pub fn left(&self) -> &MatchArm {
+    pub fn left(&self) -> &MatchArm<J> {
         &self.left
     }
 
     /// Access the match arm for right sum values.
-    pub fn right(&self) -> &MatchArm {
+    pub fn right(&self) -> &MatchArm<J> {
         &self.right
     }
 
@@ -392,23 +392,23 @@ impl Match {
     }
 }
 
-impl_eq_hash!(Match; scrutinee, left, right);
+impl_eq_hash!(Match<J: Jet>; scrutinee, left, right);
 
 /// Arm of a match expression.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct MatchArm {
+pub struct MatchArm<J: Jet> {
     pattern: MatchPattern,
-    expression: Arc<Expression>,
+    expression: Arc<Expression<J>>,
 }
 
-impl MatchArm {
+impl<J: Jet> MatchArm<J> {
     /// Access the pattern that guards the match arm.
     pub fn pattern(&self) -> &MatchPattern {
         &self.pattern
     }
 
     /// Access the expression that is executed in the match arm.
-    pub fn expression(&self) -> &Expression {
+    pub fn expression(&self) -> &Expression<J> {
         &self.expression
     }
 }
@@ -455,14 +455,14 @@ impl MatchPattern {
 
 /// Program root when parsing modules.
 #[derive(Clone, Debug)]
-pub struct ModuleProgram {
-    items: Arc<[ModuleItem]>,
+pub struct ModuleProgram<J: Jet> {
+    items: Arc<[ModuleItem<J>]>,
     span: Span,
 }
 
-impl ModuleProgram {
+impl<J: Jet> ModuleProgram<J> {
     /// Access the items of the program.
-    pub fn items(&self) -> &[ModuleItem] {
+    pub fn items(&self) -> &[ModuleItem<J>] {
         &self.items
     }
 
@@ -472,30 +472,30 @@ impl ModuleProgram {
     }
 }
 
-impl_eq_hash!(ModuleProgram; items);
+impl_eq_hash!(ModuleProgram<J: Jet>; items);
 
 /// Item when parsing modules.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum ModuleItem {
+pub enum ModuleItem<J: Jet> {
     Ignored,
-    Module(Module),
+    Module(Module<J>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Module {
+pub struct Module<J: Jet> {
     name: ModuleName,
-    assignments: Arc<[ModuleAssignment]>,
+    assignments: Arc<[ModuleAssignment<J>]>,
     span: Span,
 }
 
-impl Module {
+impl<J: Jet> Module<J> {
     /// Access the name of the module.
     pub fn name(&self) -> &ModuleName {
         &self.name
     }
 
     /// Access the assignments of the module.
-    pub fn assignments(&self) -> &[ModuleAssignment] {
+    pub fn assignments(&self) -> &[ModuleAssignment<J>] {
         &self.assignments
     }
 
@@ -506,14 +506,14 @@ impl Module {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct ModuleAssignment {
+pub struct ModuleAssignment<J: Jet> {
     name: WitnessName,
     ty: AliasedType,
-    expression: Expression,
+    expression: Expression<J>,
     span: Span,
 }
 
-impl ModuleAssignment {
+impl<J: Jet> ModuleAssignment<J> {
     /// Access the assigned witness name.
     pub fn name(&self) -> &WitnessName {
         &self.name
@@ -525,12 +525,12 @@ impl ModuleAssignment {
     }
 
     /// Access the assigned witness expression.
-    pub fn expression(&self) -> &Expression {
+    pub fn expression(&self) -> &Expression<J> {
         &self.expression
     }
 }
 
-impl fmt::Display for Program {
+impl<J: Jet> fmt::Display for Program<J> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for item in self.items() {
             writeln!(f, "{item}")?;
@@ -539,7 +539,7 @@ impl fmt::Display for Program {
     }
 }
 
-impl fmt::Display for Item {
+impl<J: Jet> fmt::Display for Item<J> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::TypeAlias(alias) => write!(f, "{alias}"),
@@ -558,7 +558,7 @@ impl fmt::Display for TypeAlias {
     }
 }
 
-impl fmt::Display for Function {
+impl<J: Jet> fmt::Display for Function<J> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "fn {}(", self.name())?;
         for (i, param) in self.params().iter().enumerate() {
@@ -582,17 +582,17 @@ impl fmt::Display for FunctionParam {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum ExprTree<'a> {
-    Expression(&'a Expression),
-    Block(&'a [Statement], &'a Option<Arc<Expression>>),
-    Statement(&'a Statement),
-    Assignment(&'a Assignment),
-    Single(&'a SingleExpression),
-    Call(&'a Call),
-    Match(&'a Match),
+pub enum ExprTree<'a, J: Jet> {
+    Expression(&'a Expression<J>),
+    Block(&'a [Statement<J>], &'a Option<Arc<Expression<J>>>),
+    Statement(&'a Statement<J>),
+    Assignment(&'a Assignment<J>),
+    Single(&'a SingleExpression<J>),
+    Call(&'a Call<J>),
+    Match(&'a Match<J>),
 }
 
-impl TreeLike for ExprTree<'_> {
+impl<J: Jet> TreeLike for ExprTree<'_, J> {
     fn as_node(&self) -> Tree<Self> {
         use SingleExpressionInner as S;
 
@@ -644,7 +644,7 @@ impl TreeLike for ExprTree<'_> {
     }
 }
 
-impl fmt::Display for ExprTree<'_> {
+impl<J: Jet> fmt::Display for ExprTree<'_, J> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use SingleExpressionInner as S;
 
@@ -761,37 +761,37 @@ impl fmt::Display for ExprTree<'_> {
     }
 }
 
-impl fmt::Display for Expression {
+impl<J: Jet> fmt::Display for Expression<J> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", ExprTree::Expression(self))
+        write!(f, "{}", ExprTree::<J>::Expression(self))
     }
 }
 
-impl fmt::Display for Statement {
+impl<J: Jet> fmt::Display for Statement<J> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", ExprTree::Statement(self))
+        write!(f, "{}", ExprTree::<J>::Statement(self))
     }
 }
 
-impl fmt::Display for Assignment {
+impl<J: Jet> fmt::Display for Assignment<J> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", ExprTree::Assignment(self))
+        write!(f, "{}", ExprTree::<J>::Assignment(self))
     }
 }
 
-impl fmt::Display for SingleExpression {
+impl<J: Jet> fmt::Display for SingleExpression<J> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", ExprTree::Single(self))
     }
 }
 
-impl fmt::Display for Call {
+impl<J: Jet> fmt::Display for Call<J> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", ExprTree::Call(self))
     }
 }
 
-impl fmt::Display for CallName {
+impl<J: Jet> fmt::Display for CallName<J> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CallName::Jet(jet) => write!(f, "jet::{jet}"),
@@ -811,9 +811,9 @@ impl fmt::Display for CallName {
     }
 }
 
-impl fmt::Display for Match {
+impl<J: Jet> fmt::Display for Match<J> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", ExprTree::Match(self))
+        write!(f, "{}", ExprTree::<J>::Match(self))
     }
 }
 
@@ -878,7 +878,7 @@ impl<A: PestParse> ParseFromStr for A {
     }
 }
 
-impl PestParse for Program {
+impl<J: Jet> PestParse for Program<J> {
     const RULE: Rule = Rule::program;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -890,12 +890,12 @@ impl PestParse for Program {
                 Rule::item => Some(Item::parse(pair)),
                 _ => None,
             })
-            .collect::<Result<Arc<[Item]>, RichError>>()?;
+            .collect::<Result<Arc<[Item<J>]>, RichError>>()?;
         Ok(Program { items, span })
     }
 }
 
-impl PestParse for Item {
+impl<J: Jet> PestParse for Item<J> {
     const RULE: Rule = Rule::item;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -909,7 +909,7 @@ impl PestParse for Item {
     }
 }
 
-impl PestParse for Function {
+impl<J: Jet> PestParse for Function<J> {
     const RULE: Rule = Rule::function;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -959,7 +959,7 @@ impl PestParse for FunctionParam {
     }
 }
 
-impl PestParse for Statement {
+impl<J: Jet> PestParse for Statement<J> {
     const RULE: Rule = Rule::statement;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -1012,7 +1012,7 @@ impl PestParse for Pattern {
     }
 }
 
-impl PestParse for Assignment {
+impl<J: Jet> PestParse for Assignment<J> {
     const RULE: Rule = Rule::assignment;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -1032,7 +1032,7 @@ impl PestParse for Assignment {
     }
 }
 
-impl PestParse for Call {
+impl<J: Jet> PestParse for Call<J> {
     const RULE: Rule = Rule::call_expr;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -1045,14 +1045,14 @@ impl PestParse for Call {
             debug_assert!(matches!(pair.as_rule(), Rule::call_args));
             pair.into_inner()
                 .map(Expression::parse)
-                .collect::<Result<Arc<[Expression]>, RichError>>()?
+                .collect::<Result<Arc<[Expression<J>]>, RichError>>()?
         };
 
         Ok(Self { name, args, span })
     }
 }
 
-impl PestParse for CallName {
+impl<J: Jet> PestParse for CallName<J> {
     const RULE: Rule = Rule::call_name;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -1110,7 +1110,7 @@ impl PestParse for CallName {
     }
 }
 
-impl PestParse for JetName {
+impl<J: Jet> PestParse for JetName<J> {
     const RULE: Rule = Rule::jet;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -1134,7 +1134,7 @@ impl PestParse for TypeAlias {
     }
 }
 
-impl PestParse for Expression {
+impl<J: Jet> PestParse for Expression<J> {
     const RULE: Rule = Rule::expression;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -1151,7 +1151,7 @@ impl PestParse for Expression {
                 let statements = it
                     .peeking_take_while(|pair| matches!(pair.as_rule(), Rule::statement))
                     .map(Statement::parse)
-                    .collect::<Result<Arc<[Statement]>, RichError>>()?;
+                    .collect::<Result<Arc<[Statement<J>]>, RichError>>()?;
                 let expression = it
                     .next()
                     .map(|pair| Expression::parse(pair).map(Arc::new))
@@ -1166,7 +1166,7 @@ impl PestParse for Expression {
     }
 }
 
-impl PestParse for SingleExpression {
+impl<J: Jet> PestParse for SingleExpression<J> {
     const RULE: Rule = Rule::single_expression;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -1224,13 +1224,13 @@ impl PestParse for SingleExpression {
                 .clone()
                 .into_inner()
                 .map(Expression::parse)
-                .collect::<Result<Arc<[Expression]>, _>>()
+                .collect::<Result<Arc<[Expression<J>]>, _>>()
                 .map(SingleExpressionInner::Tuple)?,
             Rule::array_expr => inner_pair
                 .clone()
                 .into_inner()
                 .map(Expression::parse)
-                .collect::<Result<Arc<[Expression]>, _>>()
+                .collect::<Result<Arc<[Expression<J>]>, _>>()
                 .map(SingleExpressionInner::Array)?,
             Rule::list_expr => {
                 let elements = inner_pair
@@ -1276,7 +1276,7 @@ impl PestParse for Hexadecimal {
     }
 }
 
-impl PestParse for Match {
+impl<J: Jet> PestParse for Match<J> {
     const RULE: Rule = Rule::match_expr;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -1310,7 +1310,7 @@ impl PestParse for Match {
     }
 }
 
-impl PestParse for MatchArm {
+impl<J: Jet> PestParse for MatchArm<J> {
     const RULE: Rule = Rule::match_arm;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -1500,7 +1500,7 @@ impl PestParse for NonZeroPow2Usize {
     }
 }
 
-impl PestParse for ModuleProgram {
+impl<J: Jet> PestParse for ModuleProgram<J> {
     const RULE: Rule = Rule::program;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -1509,28 +1509,28 @@ impl PestParse for ModuleProgram {
         let items = pair
             .into_inner()
             .filter_map(|pair| match pair.as_rule() {
-                Rule::item => Some(ModuleItem::parse(pair)),
+                Rule::item => Some(ModuleItem::<J>::parse(pair)),
                 _ => None,
             })
-            .collect::<Result<Arc<[ModuleItem]>, RichError>>()?;
+            .collect::<Result<Arc<[ModuleItem<J>]>, RichError>>()?;
         Ok(Self { items, span })
     }
 }
 
-impl PestParse for ModuleItem {
+impl<J: Jet> PestParse for ModuleItem<J> {
     const RULE: Rule = Rule::item;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
         assert!(matches!(pair.as_rule(), Self::RULE));
         let pair = pair.into_inner().next().unwrap();
         match pair.as_rule() {
-            Rule::module => Module::parse(pair).map(Self::Module),
+            Rule::module => Module::<J>::parse(pair).map(Self::Module),
             _ => Ok(Self::Ignored),
         }
     }
 }
 
-impl PestParse for Module {
+impl<J: Jet> PestParse for Module<J> {
     const RULE: Rule = Rule::module;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -1540,8 +1540,8 @@ impl PestParse for Module {
         let _mod_keyword = it.next().unwrap();
         let name = ModuleName::parse(it.next().unwrap())?;
         let assignments = it
-            .map(ModuleAssignment::parse)
-            .collect::<Result<Arc<[ModuleAssignment]>, RichError>>()?;
+            .map(ModuleAssignment::<J>::parse)
+            .collect::<Result<Arc<[ModuleAssignment<J>]>, RichError>>()?;
         Ok(Self {
             name,
             assignments,
@@ -1550,7 +1550,7 @@ impl PestParse for Module {
     }
 }
 
-impl PestParse for ModuleAssignment {
+impl<J: Jet> PestParse for ModuleAssignment<J> {
     const RULE: Rule = Rule::module_assign;
 
     fn parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, RichError> {
@@ -1560,7 +1560,7 @@ impl PestParse for ModuleAssignment {
         let _const_keyword = it.next().unwrap();
         let name = WitnessName::parse(it.next().unwrap())?;
         let ty = AliasedType::parse(it.next().unwrap())?;
-        let expression = Expression::parse(it.next().unwrap())?;
+        let expression = Expression::<J>::parse(it.next().unwrap())?;
         Ok(Self {
             name,
             ty,
@@ -1627,19 +1627,19 @@ impl<'a, A: AsRef<Span>> From<&'a A> for Span {
     }
 }
 
-impl AsRef<Span> for Program {
+impl<J: Jet> AsRef<Span> for Program<J> {
     fn as_ref(&self) -> &Span {
         &self.span
     }
 }
 
-impl AsRef<Span> for Function {
+impl<J: Jet> AsRef<Span> for Function<J> {
     fn as_ref(&self) -> &Span {
         &self.span
     }
 }
 
-impl AsRef<Span> for Assignment {
+impl<J: Jet> AsRef<Span> for Assignment<J> {
     fn as_ref(&self) -> &Span {
         &self.span
     }
@@ -1651,55 +1651,58 @@ impl AsRef<Span> for TypeAlias {
     }
 }
 
-impl AsRef<Span> for Expression {
+impl<J: Jet> AsRef<Span> for Expression<J> {
     fn as_ref(&self) -> &Span {
         &self.span
     }
 }
 
-impl AsRef<Span> for SingleExpression {
+impl<J: Jet> AsRef<Span> for SingleExpression<J> {
     fn as_ref(&self) -> &Span {
         &self.span
     }
 }
 
-impl AsRef<Span> for Call {
+impl<J: Jet> AsRef<Span> for Call<J> {
     fn as_ref(&self) -> &Span {
         &self.span
     }
 }
 
-impl AsRef<Span> for Match {
+impl<J: Jet> AsRef<Span> for Match<J> {
     fn as_ref(&self) -> &Span {
         &self.span
     }
 }
 
-impl AsRef<Span> for ModuleProgram {
+impl<J: Jet> AsRef<Span> for ModuleProgram<J> {
     fn as_ref(&self) -> &Span {
         &self.span
     }
 }
 
-impl AsRef<Span> for Module {
+impl<J: Jet> AsRef<Span> for Module<J> {
     fn as_ref(&self) -> &Span {
         &self.span
     }
 }
 
-impl AsRef<Span> for ModuleAssignment {
+impl<J: Jet> AsRef<Span> for ModuleAssignment<J> {
     fn as_ref(&self) -> &Span {
         &self.span
     }
 }
 
 #[cfg(feature = "arbitrary")]
-impl<'a> arbitrary::Arbitrary<'a> for Program {
+impl<'a, J> arbitrary::Arbitrary<'a> for Program<J>
+where
+    J: Jet + for<'b> arbitrary::Arbitrary<'b>,
+{
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let len = u.int_in_range(0..=3)?;
         let items = (0..len)
-            .map(|_| Item::arbitrary(u))
-            .collect::<arbitrary::Result<Arc<[Item]>>>()?;
+            .map(|_| Item::<J>::arbitrary(u))
+            .collect::<arbitrary::Result<Arc<[Item<J>]>>>()?;
         Ok(Self {
             items,
             span: Span::DUMMY,
@@ -1708,14 +1711,32 @@ impl<'a> arbitrary::Arbitrary<'a> for Program {
 }
 
 #[cfg(feature = "arbitrary")]
-impl<'a> arbitrary::Arbitrary<'a> for Function {
+impl<'a, J> arbitrary::Arbitrary<'a> for Item<J>
+where
+    J: Jet + for<'b> arbitrary::Arbitrary<'b>,
+{
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        match u.int_in_range(0..=2)? {
+            0 => TypeAlias::arbitrary(u).map(Item::TypeAlias),
+            1 => Function::arbitrary(u).map(Item::Function),
+            2 => Ok(Item::Module),
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[cfg(feature = "arbitrary")]
+impl<'a, J> arbitrary::Arbitrary<'a> for Function<J>
+where
+    J: Jet + for<'b> arbitrary::Arbitrary<'b>,
+{
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         <Self as crate::ArbitraryRec>::arbitrary_rec(u, 3)
     }
 }
 
 #[cfg(feature = "arbitrary")]
-impl crate::ArbitraryRec for Function {
+impl<J: Jet + for<'a> arbitrary::Arbitrary<'a>> crate::ArbitraryRec for Function<J> {
     fn arbitrary_rec(u: &mut arbitrary::Unstructured, budget: usize) -> arbitrary::Result<Self> {
         use arbitrary::Arbitrary;
 
@@ -1737,7 +1758,7 @@ impl crate::ArbitraryRec for Function {
 }
 
 #[cfg(feature = "arbitrary")]
-impl crate::ArbitraryRec for Expression {
+impl<J: Jet + for<'a> arbitrary::Arbitrary<'a>> crate::ArbitraryRec for Expression<J> {
     fn arbitrary_rec(u: &mut arbitrary::Unstructured, budget: usize) -> arbitrary::Result<Self> {
         use arbitrary::Arbitrary;
 
@@ -1749,7 +1770,7 @@ impl crate::ArbitraryRec for Expression {
                     let len = u.int_in_range(0..=3)?;
                     let statements = (0..len)
                         .map(|_| Statement::arbitrary_rec(u, new_budget))
-                        .collect::<arbitrary::Result<Arc<[Statement]>>>()?;
+                        .collect::<arbitrary::Result<Arc<[Statement<J>]>>>()?;
                     let maybe_single = match bool::arbitrary(u)? {
                         false => None,
                         true => Expression::arbitrary_rec(u, new_budget)
@@ -1768,7 +1789,7 @@ impl crate::ArbitraryRec for Expression {
 }
 
 #[cfg(feature = "arbitrary")]
-impl crate::ArbitraryRec for Statement {
+impl<J: Jet + for<'a> arbitrary::Arbitrary<'a>> crate::ArbitraryRec for Statement<J> {
     fn arbitrary_rec(u: &mut arbitrary::Unstructured, budget: usize) -> arbitrary::Result<Self> {
         use arbitrary::Arbitrary;
 
@@ -1780,13 +1801,13 @@ impl crate::ArbitraryRec for Statement {
 }
 
 #[cfg(feature = "arbitrary")]
-impl crate::ArbitraryRec for Assignment {
+impl<J: Jet + for<'a> arbitrary::Arbitrary<'a>> crate::ArbitraryRec for Assignment<J> {
     fn arbitrary_rec(u: &mut arbitrary::Unstructured, budget: usize) -> arbitrary::Result<Self> {
         use arbitrary::Arbitrary;
 
         let pattern = Pattern::arbitrary(u)?;
         let ty = AliasedType::arbitrary(u)?;
-        let expression = Expression::arbitrary_rec(u, budget)?;
+        let expression = Expression::<J>::arbitrary_rec(u, budget)?;
 
         Ok(Self {
             pattern,
@@ -1798,7 +1819,7 @@ impl crate::ArbitraryRec for Assignment {
 }
 
 #[cfg(feature = "arbitrary")]
-impl crate::ArbitraryRec for SingleExpression {
+impl<J: Jet + for<'a> arbitrary::Arbitrary<'a>> crate::ArbitraryRec for SingleExpression<J> {
     fn arbitrary_rec(u: &mut arbitrary::Unstructured, budget: usize) -> arbitrary::Result<Self> {
         use arbitrary::Arbitrary;
         use SingleExpressionInner as S;
@@ -1837,27 +1858,27 @@ impl crate::ArbitraryRec for SingleExpression {
                 10 => Expression::arbitrary_rec(u, new_budget)
                     .map(Arc::new)
                     .map(S::Expression),
-                11 => Call::arbitrary_rec(u, new_budget).map(S::Call),
+                11 => Call::<J>::arbitrary_rec(u, new_budget).map(S::Call),
                 12 => Match::arbitrary_rec(u, new_budget).map(S::Match),
                 13 => {
                     let len = u.int_in_range(0..=3)?;
                     (0..len)
                         .map(|_| Expression::arbitrary_rec(u, new_budget))
-                        .collect::<arbitrary::Result<Arc<[Expression]>>>()
+                        .collect::<arbitrary::Result<Arc<[Expression<J>]>>>()
                         .map(S::Tuple)
                 }
                 14 => {
                     let len = u.int_in_range(0..=3)?;
                     (0..len)
                         .map(|_| Expression::arbitrary_rec(u, new_budget))
-                        .collect::<arbitrary::Result<Arc<[Expression]>>>()
+                        .collect::<arbitrary::Result<Arc<[Expression<J>]>>>()
                         .map(S::Array)
                 }
                 15 => {
                     let len = u.int_in_range(0..=3)?;
                     let elements = (0..len)
                         .map(|_| Expression::arbitrary_rec(u, new_budget))
-                        .collect::<arbitrary::Result<Arc<[Expression]>>>()?;
+                        .collect::<arbitrary::Result<Arc<[Expression<J>]>>>()?;
                     Ok(S::List(elements))
                 }
                 _ => unreachable!(),
@@ -1871,15 +1892,15 @@ impl crate::ArbitraryRec for SingleExpression {
 }
 
 #[cfg(feature = "arbitrary")]
-impl crate::ArbitraryRec for Call {
+impl<J: Jet + for<'a> arbitrary::Arbitrary<'a>> crate::ArbitraryRec for Call<J> {
     fn arbitrary_rec(u: &mut arbitrary::Unstructured, budget: usize) -> arbitrary::Result<Self> {
         use arbitrary::Arbitrary;
 
-        let name = CallName::arbitrary(u)?;
+        let name = CallName::<J>::arbitrary(u)?;
         let len = u.int_in_range(0..=3)?;
         let args = (0..len)
             .map(|_| Expression::arbitrary_rec(u, budget))
-            .collect::<arbitrary::Result<Arc<[Expression]>>>()?;
+            .collect::<arbitrary::Result<Arc<[Expression<J>]>>>()?;
         Ok(Self {
             name,
             args,
@@ -1889,7 +1910,7 @@ impl crate::ArbitraryRec for Call {
 }
 
 #[cfg(feature = "arbitrary")]
-impl crate::ArbitraryRec for Match {
+impl<J: Jet + for<'a> arbitrary::Arbitrary<'a>> crate::ArbitraryRec for Match<J> {
     fn arbitrary_rec(u: &mut arbitrary::Unstructured, budget: usize) -> arbitrary::Result<Self> {
         use arbitrary::Arbitrary;
 

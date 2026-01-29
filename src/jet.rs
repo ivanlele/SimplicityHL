@@ -3,7 +3,9 @@ use crate::types::BuiltinAlias::*;
 use crate::types::UIntType::*;
 use crate::types::*;
 
-use simplicity_unchained::jets::unchained::ElementsExtension;
+use simplicity::jet::Core;
+use simplicity_unchained::jets::bitcoin::CoreExtension;
+use simplicity_unchained::jets::elements::ElementsExtension;
 
 use simplicity::jet::Elements;
 
@@ -31,7 +33,7 @@ fn option<A: Into<AliasedType>>(inner: A) -> AliasedType {
     AliasedType::option(inner.into())
 }
 
-pub fn source_type(jet: ElementsExtension) -> Vec<AliasedType> {
+pub fn source_type_elements_extension(jet: ElementsExtension) -> Vec<AliasedType> {
     match jet {
         /*
          * ==============================
@@ -625,7 +627,477 @@ pub fn source_type(jet: ElementsExtension) -> Vec<AliasedType> {
     }
 }
 
-pub fn target_type(jet: ElementsExtension) -> AliasedType {
+pub fn source_type_core_extension(jet: CoreExtension) -> Vec<AliasedType> {
+    match jet {
+        /*
+         * ==============================
+         *          Core jets
+         * ==============================
+         *
+         * Multi-bit logic
+         */
+        CoreExtension::Core(Core::Low1)
+        | CoreExtension::Core(Core::Low8)
+        | CoreExtension::Core(Core::Low16)
+        | CoreExtension::Core(Core::Low32)
+        | CoreExtension::Core(Core::Low64)
+        | CoreExtension::Core(Core::High1)
+        | CoreExtension::Core(Core::High8)
+        | CoreExtension::Core(Core::High16)
+        | CoreExtension::Core(Core::High32)
+        | CoreExtension::Core(Core::High64) => vec![],
+        CoreExtension::Core(Core::Verify) => vec![bool()],
+        CoreExtension::Core(Core::Complement1)
+        | CoreExtension::Core(Core::Some1)
+        | CoreExtension::Core(Core::LeftPadLow1_8)
+        | CoreExtension::Core(Core::LeftPadLow1_16)
+        | CoreExtension::Core(Core::LeftPadLow1_32)
+        | CoreExtension::Core(Core::LeftPadLow1_64)
+        | CoreExtension::Core(Core::LeftPadHigh1_8)
+        | CoreExtension::Core(Core::LeftPadHigh1_16)
+        | CoreExtension::Core(Core::LeftPadHigh1_32)
+        | CoreExtension::Core(Core::LeftPadHigh1_64)
+        | CoreExtension::Core(Core::LeftExtend1_8)
+        | CoreExtension::Core(Core::LeftExtend1_16)
+        | CoreExtension::Core(Core::LeftExtend1_32)
+        | CoreExtension::Core(Core::LeftExtend1_64)
+        | CoreExtension::Core(Core::RightPadLow1_8)
+        | CoreExtension::Core(Core::RightPadLow1_16)
+        | CoreExtension::Core(Core::RightPadLow1_32)
+        | CoreExtension::Core(Core::RightPadLow1_64)
+        | CoreExtension::Core(Core::RightPadHigh1_8)
+        | CoreExtension::Core(Core::RightPadHigh1_16)
+        | CoreExtension::Core(Core::RightPadHigh1_32)
+        | CoreExtension::Core(Core::RightPadHigh1_64) => vec![U1.into()],
+        CoreExtension::Core(Core::Complement8)
+        | CoreExtension::Core(Core::Some8)
+        | CoreExtension::Core(Core::All8)
+        | CoreExtension::Core(Core::Leftmost8_1)
+        | CoreExtension::Core(Core::Leftmost8_2)
+        | CoreExtension::Core(Core::Leftmost8_4)
+        | CoreExtension::Core(Core::Rightmost8_1)
+        | CoreExtension::Core(Core::Rightmost8_2)
+        | CoreExtension::Core(Core::Rightmost8_4)
+        | CoreExtension::Core(Core::LeftPadLow8_16)
+        | CoreExtension::Core(Core::LeftPadLow8_32)
+        | CoreExtension::Core(Core::LeftPadLow8_64)
+        | CoreExtension::Core(Core::LeftPadHigh8_16)
+        | CoreExtension::Core(Core::LeftPadHigh8_32)
+        | CoreExtension::Core(Core::LeftPadHigh8_64)
+        | CoreExtension::Core(Core::LeftExtend8_16)
+        | CoreExtension::Core(Core::LeftExtend8_32)
+        | CoreExtension::Core(Core::LeftExtend8_64)
+        | CoreExtension::Core(Core::RightPadLow8_16)
+        | CoreExtension::Core(Core::RightPadLow8_32)
+        | CoreExtension::Core(Core::RightPadLow8_64)
+        | CoreExtension::Core(Core::RightPadHigh8_16)
+        | CoreExtension::Core(Core::RightPadHigh8_32)
+        | CoreExtension::Core(Core::RightPadHigh8_64)
+        | CoreExtension::Core(Core::RightExtend8_16)
+        | CoreExtension::Core(Core::RightExtend8_32)
+        | CoreExtension::Core(Core::RightExtend8_64) => vec![U8.into()],
+        CoreExtension::Core(Core::Complement16)
+        | CoreExtension::Core(Core::Some16)
+        | CoreExtension::Core(Core::All16)
+        | CoreExtension::Core(Core::Leftmost16_1)
+        | CoreExtension::Core(Core::Leftmost16_2)
+        | CoreExtension::Core(Core::Leftmost16_4)
+        | CoreExtension::Core(Core::Leftmost16_8)
+        | CoreExtension::Core(Core::Rightmost16_1)
+        | CoreExtension::Core(Core::Rightmost16_2)
+        | CoreExtension::Core(Core::Rightmost16_4)
+        | CoreExtension::Core(Core::Rightmost16_8)
+        | CoreExtension::Core(Core::LeftPadLow16_32)
+        | CoreExtension::Core(Core::LeftPadLow16_64)
+        | CoreExtension::Core(Core::LeftPadHigh16_32)
+        | CoreExtension::Core(Core::LeftPadHigh16_64)
+        | CoreExtension::Core(Core::LeftExtend16_32)
+        | CoreExtension::Core(Core::LeftExtend16_64)
+        | CoreExtension::Core(Core::RightPadLow16_32)
+        | CoreExtension::Core(Core::RightPadLow16_64)
+        | CoreExtension::Core(Core::RightPadHigh16_32)
+        | CoreExtension::Core(Core::RightPadHigh16_64)
+        | CoreExtension::Core(Core::RightExtend16_32)
+        | CoreExtension::Core(Core::RightExtend16_64) => vec![U16.into()],
+        CoreExtension::Core(Core::Complement32)
+        | CoreExtension::Core(Core::Some32)
+        | CoreExtension::Core(Core::All32)
+        | CoreExtension::Core(Core::Leftmost32_1)
+        | CoreExtension::Core(Core::Leftmost32_2)
+        | CoreExtension::Core(Core::Leftmost32_4)
+        | CoreExtension::Core(Core::Leftmost32_8)
+        | CoreExtension::Core(Core::Leftmost32_16)
+        | CoreExtension::Core(Core::Rightmost32_1)
+        | CoreExtension::Core(Core::Rightmost32_2)
+        | CoreExtension::Core(Core::Rightmost32_4)
+        | CoreExtension::Core(Core::Rightmost32_8)
+        | CoreExtension::Core(Core::Rightmost32_16)
+        | CoreExtension::Core(Core::LeftPadLow32_64)
+        | CoreExtension::Core(Core::LeftPadHigh32_64)
+        | CoreExtension::Core(Core::LeftExtend32_64)
+        | CoreExtension::Core(Core::RightPadLow32_64)
+        | CoreExtension::Core(Core::RightPadHigh32_64)
+        | CoreExtension::Core(Core::RightExtend32_64) => vec![U32.into()],
+        CoreExtension::Core(Core::Complement64)
+        | CoreExtension::Core(Core::Some64)
+        | CoreExtension::Core(Core::All64)
+        | CoreExtension::Core(Core::Leftmost64_1)
+        | CoreExtension::Core(Core::Leftmost64_2)
+        | CoreExtension::Core(Core::Leftmost64_4)
+        | CoreExtension::Core(Core::Leftmost64_8)
+        | CoreExtension::Core(Core::Leftmost64_16)
+        | CoreExtension::Core(Core::Leftmost64_32)
+        | CoreExtension::Core(Core::Rightmost64_1)
+        | CoreExtension::Core(Core::Rightmost64_2)
+        | CoreExtension::Core(Core::Rightmost64_4)
+        | CoreExtension::Core(Core::Rightmost64_8)
+        | CoreExtension::Core(Core::Rightmost64_16)
+        | CoreExtension::Core(Core::Rightmost64_32) => vec![U64.into()],
+        CoreExtension::Core(Core::And1)
+        | CoreExtension::Core(Core::Or1)
+        | CoreExtension::Core(Core::Xor1)
+        | CoreExtension::Core(Core::Eq1) => {
+            vec![U1.into(), U1.into()]
+        }
+        CoreExtension::Core(Core::And8)
+        | CoreExtension::Core(Core::Or8)
+        | CoreExtension::Core(Core::Xor8)
+        | CoreExtension::Core(Core::Eq8) => {
+            vec![U8.into(), U8.into()]
+        }
+        CoreExtension::Core(Core::And16)
+        | CoreExtension::Core(Core::Or16)
+        | CoreExtension::Core(Core::Xor16)
+        | CoreExtension::Core(Core::Eq16) => {
+            vec![U16.into(), U16.into()]
+        }
+        CoreExtension::Core(Core::And32)
+        | CoreExtension::Core(Core::Or32)
+        | CoreExtension::Core(Core::Xor32)
+        | CoreExtension::Core(Core::Eq32) => {
+            vec![U32.into(), U32.into()]
+        }
+        CoreExtension::Core(Core::And64)
+        | CoreExtension::Core(Core::Or64)
+        | CoreExtension::Core(Core::Xor64)
+        | CoreExtension::Core(Core::Eq64) => {
+            vec![U64.into(), U64.into()]
+        }
+        CoreExtension::Core(Core::Eq256) => vec![U256.into(), U256.into()],
+        CoreExtension::Core(Core::Maj1)
+        | CoreExtension::Core(Core::XorXor1)
+        | CoreExtension::Core(Core::Ch1) => vec![U1.into(), U1.into(), U1.into()],
+        CoreExtension::Core(Core::Maj8)
+        | CoreExtension::Core(Core::XorXor8)
+        | CoreExtension::Core(Core::Ch8) => vec![U8.into(), U8.into(), U8.into()],
+        CoreExtension::Core(Core::Maj16)
+        | CoreExtension::Core(Core::XorXor16)
+        | CoreExtension::Core(Core::Ch16) => {
+            vec![U16.into(), tuple([U16, U16])]
+        }
+        CoreExtension::Core(Core::Maj32)
+        | CoreExtension::Core(Core::XorXor32)
+        | CoreExtension::Core(Core::Ch32) => {
+            vec![U32.into(), tuple([U32, U32])]
+        }
+        CoreExtension::Core(Core::Maj64)
+        | CoreExtension::Core(Core::XorXor64)
+        | CoreExtension::Core(Core::Ch64) => {
+            vec![U64.into(), tuple([U64, U64])]
+        }
+        CoreExtension::Core(Core::FullLeftShift8_1) => vec![U8.into(), U1.into()],
+        CoreExtension::Core(Core::FullLeftShift8_2) => vec![U8.into(), U2.into()],
+        CoreExtension::Core(Core::FullLeftShift8_4) => vec![U8.into(), U4.into()],
+        CoreExtension::Core(Core::FullLeftShift16_1) => vec![U16.into(), U1.into()],
+        CoreExtension::Core(Core::FullLeftShift16_2) => vec![U16.into(), U2.into()],
+        CoreExtension::Core(Core::FullLeftShift16_4) => vec![U16.into(), U4.into()],
+        CoreExtension::Core(Core::FullLeftShift16_8) => vec![U16.into(), U8.into()],
+        CoreExtension::Core(Core::FullLeftShift32_1) => vec![U32.into(), U1.into()],
+        CoreExtension::Core(Core::FullLeftShift32_2) => vec![U32.into(), U2.into()],
+        CoreExtension::Core(Core::FullLeftShift32_4) => vec![U32.into(), U4.into()],
+        CoreExtension::Core(Core::FullLeftShift32_8) => vec![U32.into(), U8.into()],
+        CoreExtension::Core(Core::FullLeftShift32_16) => vec![U32.into(), U16.into()],
+        CoreExtension::Core(Core::FullLeftShift64_1) => vec![U64.into(), U1.into()],
+        CoreExtension::Core(Core::FullLeftShift64_2) => vec![U64.into(), U2.into()],
+        CoreExtension::Core(Core::FullLeftShift64_4) => vec![U64.into(), U4.into()],
+        CoreExtension::Core(Core::FullLeftShift64_8) => vec![U64.into(), U8.into()],
+        CoreExtension::Core(Core::FullLeftShift64_16) => vec![U64.into(), U16.into()],
+        CoreExtension::Core(Core::FullLeftShift64_32) => vec![U64.into(), U32.into()],
+        CoreExtension::Core(Core::FullRightShift8_1) => vec![U1.into(), U8.into()],
+        CoreExtension::Core(Core::FullRightShift8_2) => vec![U2.into(), U8.into()],
+        CoreExtension::Core(Core::FullRightShift8_4) => vec![U4.into(), U8.into()],
+        CoreExtension::Core(Core::FullRightShift16_1) => vec![U1.into(), U16.into()],
+        CoreExtension::Core(Core::FullRightShift16_2) => vec![U2.into(), U16.into()],
+        CoreExtension::Core(Core::FullRightShift16_4) => vec![U4.into(), U16.into()],
+        CoreExtension::Core(Core::FullRightShift16_8) => vec![U8.into(), U16.into()],
+        CoreExtension::Core(Core::FullRightShift32_1) => vec![U1.into(), U32.into()],
+        CoreExtension::Core(Core::FullRightShift32_2) => vec![U2.into(), U32.into()],
+        CoreExtension::Core(Core::FullRightShift32_4) => vec![U4.into(), U32.into()],
+        CoreExtension::Core(Core::FullRightShift32_8) => vec![U8.into(), U32.into()],
+        CoreExtension::Core(Core::FullRightShift32_16) => vec![U16.into(), U32.into()],
+        CoreExtension::Core(Core::FullRightShift64_1) => vec![U1.into(), U64.into()],
+        CoreExtension::Core(Core::FullRightShift64_2) => vec![U2.into(), U64.into()],
+        CoreExtension::Core(Core::FullRightShift64_4) => vec![U4.into(), U64.into()],
+        CoreExtension::Core(Core::FullRightShift64_8) => vec![U8.into(), U64.into()],
+        CoreExtension::Core(Core::FullRightShift64_16) => vec![U16.into(), U64.into()],
+        CoreExtension::Core(Core::FullRightShift64_32) => vec![U32.into(), U64.into()],
+        CoreExtension::Core(Core::LeftShiftWith8) | CoreExtension::Core(Core::RightShiftWith8) => {
+            vec![U1.into(), U4.into(), U8.into()]
+        }
+        CoreExtension::Core(Core::LeftShiftWith16)
+        | CoreExtension::Core(Core::RightShiftWith16) => {
+            vec![U1.into(), U4.into(), U16.into()]
+        }
+        CoreExtension::Core(Core::LeftShiftWith32)
+        | CoreExtension::Core(Core::RightShiftWith32) => {
+            vec![U1.into(), U8.into(), U32.into()]
+        }
+        CoreExtension::Core(Core::LeftShiftWith64)
+        | CoreExtension::Core(Core::RightShiftWith64) => {
+            vec![U1.into(), U8.into(), U64.into()]
+        }
+        CoreExtension::Core(Core::LeftShift8)
+        | CoreExtension::Core(Core::RightShift8)
+        | CoreExtension::Core(Core::LeftRotate8)
+        | CoreExtension::Core(Core::RightRotate8) => vec![U4.into(), U8.into()],
+        CoreExtension::Core(Core::LeftShift16)
+        | CoreExtension::Core(Core::RightShift16)
+        | CoreExtension::Core(Core::LeftRotate16)
+        | CoreExtension::Core(Core::RightRotate16) => vec![U4.into(), U16.into()],
+        CoreExtension::Core(Core::LeftShift32)
+        | CoreExtension::Core(Core::RightShift32)
+        | CoreExtension::Core(Core::LeftRotate32)
+        | CoreExtension::Core(Core::RightRotate32) => vec![U8.into(), U32.into()],
+        CoreExtension::Core(Core::LeftShift64)
+        | CoreExtension::Core(Core::RightShift64)
+        | CoreExtension::Core(Core::LeftRotate64)
+        | CoreExtension::Core(Core::RightRotate64) => vec![U8.into(), U64.into()],
+        /*
+         * Arithmetic
+         */
+        CoreExtension::Core(Core::One8)
+        | CoreExtension::Core(Core::One16)
+        | CoreExtension::Core(Core::One32)
+        | CoreExtension::Core(Core::One64) => vec![],
+        CoreExtension::Core(Core::Increment8)
+        | CoreExtension::Core(Core::Negate8)
+        | CoreExtension::Core(Core::Decrement8)
+        | CoreExtension::Core(Core::IsZero8)
+        | CoreExtension::Core(Core::IsOne8) => vec![U8.into()],
+        CoreExtension::Core(Core::Increment16)
+        | CoreExtension::Core(Core::Negate16)
+        | CoreExtension::Core(Core::Decrement16)
+        | CoreExtension::Core(Core::IsZero16)
+        | CoreExtension::Core(Core::IsOne16) => vec![U16.into()],
+        CoreExtension::Core(Core::Increment32)
+        | CoreExtension::Core(Core::Negate32)
+        | CoreExtension::Core(Core::Decrement32)
+        | CoreExtension::Core(Core::IsZero32)
+        | CoreExtension::Core(Core::IsOne32) => vec![U32.into()],
+        CoreExtension::Core(Core::Increment64)
+        | CoreExtension::Core(Core::Negate64)
+        | CoreExtension::Core(Core::Decrement64)
+        | CoreExtension::Core(Core::IsZero64)
+        | CoreExtension::Core(Core::IsOne64) => vec![U64.into()],
+        CoreExtension::Core(Core::Add8)
+        | CoreExtension::Core(Core::Subtract8)
+        | CoreExtension::Core(Core::Multiply8)
+        | CoreExtension::Core(Core::Le8)
+        | CoreExtension::Core(Core::Lt8)
+        | CoreExtension::Core(Core::Min8)
+        | CoreExtension::Core(Core::Max8)
+        | CoreExtension::Core(Core::DivMod8)
+        | CoreExtension::Core(Core::Divide8)
+        | CoreExtension::Core(Core::Modulo8)
+        | CoreExtension::Core(Core::Divides8) => vec![U8.into(), U8.into()],
+        CoreExtension::Core(Core::Add16)
+        | CoreExtension::Core(Core::Subtract16)
+        | CoreExtension::Core(Core::Multiply16)
+        | CoreExtension::Core(Core::Le16)
+        | CoreExtension::Core(Core::Lt16)
+        | CoreExtension::Core(Core::Min16)
+        | CoreExtension::Core(Core::Max16)
+        | CoreExtension::Core(Core::DivMod16)
+        | CoreExtension::Core(Core::Divide16)
+        | CoreExtension::Core(Core::Modulo16)
+        | CoreExtension::Core(Core::Divides16) => vec![U16.into(), U16.into()],
+        CoreExtension::Core(Core::Add32)
+        | CoreExtension::Core(Core::Subtract32)
+        | CoreExtension::Core(Core::Multiply32)
+        | CoreExtension::Core(Core::Le32)
+        | CoreExtension::Core(Core::Lt32)
+        | CoreExtension::Core(Core::Min32)
+        | CoreExtension::Core(Core::Max32)
+        | CoreExtension::Core(Core::DivMod32)
+        | CoreExtension::Core(Core::Divide32)
+        | CoreExtension::Core(Core::Modulo32)
+        | CoreExtension::Core(Core::Divides32) => vec![U32.into(), U32.into()],
+        CoreExtension::Core(Core::Add64)
+        | CoreExtension::Core(Core::Subtract64)
+        | CoreExtension::Core(Core::Multiply64)
+        | CoreExtension::Core(Core::Le64)
+        | CoreExtension::Core(Core::Lt64)
+        | CoreExtension::Core(Core::Min64)
+        | CoreExtension::Core(Core::Max64)
+        | CoreExtension::Core(Core::DivMod64)
+        | CoreExtension::Core(Core::Divide64)
+        | CoreExtension::Core(Core::Modulo64)
+        | CoreExtension::Core(Core::Divides64) => vec![U64.into(), U64.into()],
+        CoreExtension::Core(Core::DivMod128_64) => vec![U128.into(), U64.into()],
+        CoreExtension::Core(Core::FullAdd8) | CoreExtension::Core(Core::FullSubtract8) => {
+            vec![bool(), U8.into(), U8.into()]
+        }
+        CoreExtension::Core(Core::FullAdd16) | CoreExtension::Core(Core::FullSubtract16) => {
+            vec![bool(), U16.into(), U16.into()]
+        }
+        CoreExtension::Core(Core::FullAdd32) | CoreExtension::Core(Core::FullSubtract32) => {
+            vec![bool(), U32.into(), U32.into()]
+        }
+        CoreExtension::Core(Core::FullAdd64) | CoreExtension::Core(Core::FullSubtract64) => {
+            vec![bool(), U64.into(), U64.into()]
+        }
+        CoreExtension::Core(Core::FullIncrement8) | CoreExtension::Core(Core::FullDecrement8) => {
+            vec![bool(), U8.into()]
+        }
+        CoreExtension::Core(Core::FullIncrement16) | CoreExtension::Core(Core::FullDecrement16) => {
+            vec![bool(), U16.into()]
+        }
+        CoreExtension::Core(Core::FullIncrement32) | CoreExtension::Core(Core::FullDecrement32) => {
+            vec![bool(), U32.into()]
+        }
+        CoreExtension::Core(Core::FullIncrement64) | CoreExtension::Core(Core::FullDecrement64) => {
+            vec![bool(), U64.into()]
+        }
+        CoreExtension::Core(Core::FullMultiply8) => {
+            vec![tuple([U8, U8]), tuple([U8, U8])]
+        }
+        CoreExtension::Core(Core::FullMultiply16) => {
+            vec![tuple([U16, U16]), tuple([U16, U16])]
+        }
+        CoreExtension::Core(Core::FullMultiply32) => {
+            vec![tuple([U32, U32]), tuple([U32, U32])]
+        }
+        CoreExtension::Core(Core::FullMultiply64) => {
+            vec![tuple([U64, U64]), tuple([U64, U64])]
+        }
+        CoreExtension::Core(Core::Median8) => vec![U8.into(), U8.into(), U8.into()],
+        CoreExtension::Core(Core::Median16) => vec![U16.into(), U16.into(), U16.into()],
+        CoreExtension::Core(Core::Median32) => vec![U32.into(), U32.into(), U32.into()],
+        CoreExtension::Core(Core::Median64) => vec![U64.into(), U64.into(), U64.into()],
+        /*
+         * Hash functions
+         */
+        CoreExtension::Core(Core::Sha256Iv) | CoreExtension::Core(Core::Sha256Ctx8Init) => vec![],
+        CoreExtension::Core(Core::Sha256Block) => {
+            vec![U256.into(), U256.into(), U256.into()]
+        }
+        CoreExtension::Core(Core::Sha256Ctx8Add1) => vec![Ctx8.into(), U8.into()],
+        CoreExtension::Core(Core::Sha256Ctx8Add2) => vec![Ctx8.into(), U16.into()],
+        CoreExtension::Core(Core::Sha256Ctx8Add4) => vec![Ctx8.into(), U32.into()],
+        CoreExtension::Core(Core::Sha256Ctx8Add8) => vec![Ctx8.into(), U64.into()],
+        CoreExtension::Core(Core::Sha256Ctx8Add16) => vec![Ctx8.into(), U128.into()],
+        CoreExtension::Core(Core::Sha256Ctx8Add32) => vec![Ctx8.into(), U256.into()],
+        CoreExtension::Core(Core::Sha256Ctx8Add64) => vec![Ctx8.into(), array(U8, 64)],
+        CoreExtension::Core(Core::Sha256Ctx8Add128) => {
+            vec![Ctx8.into(), array(U8, 128)]
+        }
+        CoreExtension::Core(Core::Sha256Ctx8Add256) => {
+            vec![Ctx8.into(), array(U8, 256)]
+        }
+        CoreExtension::Core(Core::Sha256Ctx8Add512) => {
+            vec![Ctx8.into(), array(U8, 512)]
+        }
+        CoreExtension::Core(Core::Sha256Ctx8AddBuffer511) => {
+            vec![Ctx8.into(), list(U8, 512)]
+        }
+        CoreExtension::Core(Core::Sha256Ctx8Finalize) => vec![Ctx8.into()],
+        /*
+         * Elliptic curve functions
+         */
+        // XXX: Nonstandard tuple
+        CoreExtension::Core(Core::PointVerify1) => {
+            vec![tuple([tuple([Scalar, Point]), Scalar.into()]), Point.into()]
+        }
+        CoreExtension::Core(Core::Decompress) => vec![Point.into()],
+        // XXX: Nonstandard tuple
+        CoreExtension::Core(Core::LinearVerify1) => {
+            vec![tuple([tuple([Scalar, Ge]), Scalar.into()]), Ge.into()]
+        }
+        // XXX: Nonstandard tuple
+        CoreExtension::Core(Core::LinearCombination1) => {
+            vec![tuple([Scalar, Gej]), Scalar.into()]
+        }
+        CoreExtension::Core(Core::Scale) => vec![Scalar.into(), Gej.into()],
+        CoreExtension::Core(Core::Generate) => vec![Scalar.into()],
+        CoreExtension::Core(Core::GejInfinity) => vec![],
+        CoreExtension::Core(Core::GejNormalize)
+        | CoreExtension::Core(Core::GejNegate)
+        | CoreExtension::Core(Core::GejDouble)
+        | CoreExtension::Core(Core::GejIsInfinity)
+        | CoreExtension::Core(Core::GejYIsOdd)
+        | CoreExtension::Core(Core::GejIsOnCurve) => vec![Gej.into()],
+        CoreExtension::Core(Core::GeNegate) | CoreExtension::Core(Core::GeIsOnCurve) => {
+            vec![Ge.into()]
+        }
+        CoreExtension::Core(Core::GejAdd) | CoreExtension::Core(Core::GejEquiv) => {
+            vec![Gej.into(), Gej.into()]
+        }
+        CoreExtension::Core(Core::GejGeAddEx)
+        | CoreExtension::Core(Core::GejGeAdd)
+        | CoreExtension::Core(Core::GejGeEquiv) => {
+            vec![Gej.into(), Ge.into()]
+        }
+        CoreExtension::Core(Core::GejRescale) => vec![Gej.into(), Fe.into()],
+        CoreExtension::Core(Core::GejXEquiv) => vec![Fe.into(), Gej.into()],
+        CoreExtension::Core(Core::ScalarAdd) | CoreExtension::Core(Core::ScalarMultiply) => {
+            vec![Scalar.into(), Scalar.into()]
+        }
+        CoreExtension::Core(Core::ScalarNormalize)
+        | CoreExtension::Core(Core::ScalarNegate)
+        | CoreExtension::Core(Core::ScalarSquare)
+        | CoreExtension::Core(Core::ScalarInvert)
+        | CoreExtension::Core(Core::ScalarMultiplyLambda)
+        | CoreExtension::Core(Core::ScalarIsZero) => vec![Scalar.into()],
+        CoreExtension::Core(Core::FeNormalize)
+        | CoreExtension::Core(Core::FeNegate)
+        | CoreExtension::Core(Core::FeSquare)
+        | CoreExtension::Core(Core::FeMultiplyBeta)
+        | CoreExtension::Core(Core::FeInvert)
+        | CoreExtension::Core(Core::FeSquareRoot)
+        | CoreExtension::Core(Core::FeIsZero)
+        | CoreExtension::Core(Core::FeIsOdd)
+        | CoreExtension::Core(Core::Swu) => vec![Fe.into()],
+        CoreExtension::Core(Core::FeAdd) | CoreExtension::Core(Core::FeMultiply) => {
+            vec![Fe.into(), Fe.into()]
+        }
+        CoreExtension::Core(Core::HashToCurve) => vec![U256.into()],
+        /*
+         * Digital signatures
+         */
+        // XXX: Nonstandard tuple
+        CoreExtension::Core(Core::CheckSigVerify) => {
+            vec![tuple([Pubkey, Message64]), Signature.into()]
+        }
+        // XXX: Nonstandard tuple
+        CoreExtension::Core(Core::Bip0340Verify) => {
+            vec![tuple([Pubkey, Message]), Signature.into()]
+        }
+        /*
+         * Bitcoin (without primitives)
+         */
+        CoreExtension::Core(Core::TapdataInit) => vec![],
+        CoreExtension::Core(Core::ParseLock) | CoreExtension::Core(Core::ParseSequence) => {
+            vec![U32.into()]
+        }
+        /*
+         * Script operations
+         */
+        CoreExtension::GetOpcodeFromScript => vec![U8.into()],
+        CoreExtension::GetPubkeyFromScript => vec![U8.into()],
+    }
+}
+
+pub fn target_type_elements_extension(jet: ElementsExtension) -> AliasedType {
     match jet {
         /*
          * ==============================
@@ -1146,6 +1618,410 @@ pub fn target_type(jet: ElementsExtension) -> AliasedType {
     }
 }
 
+pub fn target_type_core_extension(jet: CoreExtension) -> AliasedType {
+    match jet {
+        /*
+         * ==============================
+         *          Core jets
+         * ==============================
+         *
+         * Multi-bit logic
+         */
+        CoreExtension::Core(Core::Verify) => AliasedType::unit(),
+        CoreExtension::Core(Core::Some1)
+        | CoreExtension::Core(Core::Some8)
+        | CoreExtension::Core(Core::Some16)
+        | CoreExtension::Core(Core::Some32)
+        | CoreExtension::Core(Core::Some64)
+        | CoreExtension::Core(Core::All8)
+        | CoreExtension::Core(Core::All16)
+        | CoreExtension::Core(Core::All32)
+        | CoreExtension::Core(Core::All64)
+        | CoreExtension::Core(Core::Eq1)
+        | CoreExtension::Core(Core::Eq8)
+        | CoreExtension::Core(Core::Eq16)
+        | CoreExtension::Core(Core::Eq32)
+        | CoreExtension::Core(Core::Eq64)
+        | CoreExtension::Core(Core::Eq256) => bool(),
+        CoreExtension::Core(Core::Low1)
+        | CoreExtension::Core(Core::High1)
+        | CoreExtension::Core(Core::Complement1)
+        | CoreExtension::Core(Core::And1)
+        | CoreExtension::Core(Core::Or1)
+        | CoreExtension::Core(Core::Xor1)
+        | CoreExtension::Core(Core::Maj1)
+        | CoreExtension::Core(Core::XorXor1)
+        | CoreExtension::Core(Core::Ch1)
+        | CoreExtension::Core(Core::Leftmost8_1)
+        | CoreExtension::Core(Core::Rightmost8_1)
+        | CoreExtension::Core(Core::Leftmost16_1)
+        | CoreExtension::Core(Core::Rightmost16_1)
+        | CoreExtension::Core(Core::Leftmost32_1)
+        | CoreExtension::Core(Core::Rightmost32_1)
+        | CoreExtension::Core(Core::Leftmost64_1)
+        | CoreExtension::Core(Core::Rightmost64_1) => U1.into(),
+        CoreExtension::Core(Core::Leftmost8_2)
+        | CoreExtension::Core(Core::Rightmost8_2)
+        | CoreExtension::Core(Core::Leftmost16_2)
+        | CoreExtension::Core(Core::Rightmost16_2)
+        | CoreExtension::Core(Core::Leftmost32_2)
+        | CoreExtension::Core(Core::Rightmost32_2)
+        | CoreExtension::Core(Core::Leftmost64_2)
+        | CoreExtension::Core(Core::Rightmost64_2) => U2.into(),
+        CoreExtension::Core(Core::Leftmost8_4)
+        | CoreExtension::Core(Core::Rightmost8_4)
+        | CoreExtension::Core(Core::Leftmost16_4)
+        | CoreExtension::Core(Core::Rightmost16_4)
+        | CoreExtension::Core(Core::Leftmost32_4)
+        | CoreExtension::Core(Core::Rightmost32_4)
+        | CoreExtension::Core(Core::Leftmost64_4)
+        | CoreExtension::Core(Core::Rightmost64_4) => U4.into(),
+        CoreExtension::Core(Core::Low8)
+        | CoreExtension::Core(Core::High8)
+        | CoreExtension::Core(Core::Complement8)
+        | CoreExtension::Core(Core::And8)
+        | CoreExtension::Core(Core::Or8)
+        | CoreExtension::Core(Core::Xor8)
+        | CoreExtension::Core(Core::Maj8)
+        | CoreExtension::Core(Core::XorXor8)
+        | CoreExtension::Core(Core::Ch8)
+        | CoreExtension::Core(Core::Leftmost16_8)
+        | CoreExtension::Core(Core::Rightmost16_8)
+        | CoreExtension::Core(Core::Leftmost32_8)
+        | CoreExtension::Core(Core::Rightmost32_8)
+        | CoreExtension::Core(Core::Leftmost64_8)
+        | CoreExtension::Core(Core::Rightmost64_8)
+        | CoreExtension::Core(Core::LeftPadLow1_8)
+        | CoreExtension::Core(Core::LeftPadHigh1_8)
+        | CoreExtension::Core(Core::LeftExtend1_8)
+        | CoreExtension::Core(Core::RightPadLow1_8)
+        | CoreExtension::Core(Core::RightPadHigh1_8)
+        | CoreExtension::Core(Core::LeftShiftWith8)
+        | CoreExtension::Core(Core::RightShiftWith8)
+        | CoreExtension::Core(Core::LeftShift8)
+        | CoreExtension::Core(Core::RightShift8)
+        | CoreExtension::Core(Core::LeftRotate8)
+        | CoreExtension::Core(Core::RightRotate8) => U8.into(),
+        CoreExtension::Core(Core::Low16)
+        | CoreExtension::Core(Core::High16)
+        | CoreExtension::Core(Core::Complement16)
+        | CoreExtension::Core(Core::And16)
+        | CoreExtension::Core(Core::Or16)
+        | CoreExtension::Core(Core::Xor16)
+        | CoreExtension::Core(Core::Maj16)
+        | CoreExtension::Core(Core::XorXor16)
+        | CoreExtension::Core(Core::Ch16)
+        | CoreExtension::Core(Core::Leftmost32_16)
+        | CoreExtension::Core(Core::Rightmost32_16)
+        | CoreExtension::Core(Core::Leftmost64_16)
+        | CoreExtension::Core(Core::Rightmost64_16)
+        | CoreExtension::Core(Core::LeftPadLow1_16)
+        | CoreExtension::Core(Core::LeftPadHigh1_16)
+        | CoreExtension::Core(Core::LeftExtend1_16)
+        | CoreExtension::Core(Core::RightPadLow1_16)
+        | CoreExtension::Core(Core::RightPadHigh1_16)
+        | CoreExtension::Core(Core::LeftPadLow8_16)
+        | CoreExtension::Core(Core::LeftPadHigh8_16)
+        | CoreExtension::Core(Core::LeftExtend8_16)
+        | CoreExtension::Core(Core::RightPadLow8_16)
+        | CoreExtension::Core(Core::RightPadHigh8_16)
+        | CoreExtension::Core(Core::RightExtend8_16)
+        | CoreExtension::Core(Core::LeftShiftWith16)
+        | CoreExtension::Core(Core::RightShiftWith16)
+        | CoreExtension::Core(Core::LeftShift16)
+        | CoreExtension::Core(Core::RightShift16)
+        | CoreExtension::Core(Core::LeftRotate16)
+        | CoreExtension::Core(Core::RightRotate16) => U16.into(),
+        CoreExtension::Core(Core::Low32)
+        | CoreExtension::Core(Core::High32)
+        | CoreExtension::Core(Core::Complement32)
+        | CoreExtension::Core(Core::And32)
+        | CoreExtension::Core(Core::Or32)
+        | CoreExtension::Core(Core::Xor32)
+        | CoreExtension::Core(Core::Maj32)
+        | CoreExtension::Core(Core::XorXor32)
+        | CoreExtension::Core(Core::Ch32)
+        | CoreExtension::Core(Core::Leftmost64_32)
+        | CoreExtension::Core(Core::Rightmost64_32)
+        | CoreExtension::Core(Core::LeftPadLow1_32)
+        | CoreExtension::Core(Core::LeftPadHigh1_32)
+        | CoreExtension::Core(Core::LeftExtend1_32)
+        | CoreExtension::Core(Core::RightPadLow1_32)
+        | CoreExtension::Core(Core::RightPadHigh1_32)
+        | CoreExtension::Core(Core::LeftPadLow8_32)
+        | CoreExtension::Core(Core::LeftPadHigh8_32)
+        | CoreExtension::Core(Core::LeftExtend8_32)
+        | CoreExtension::Core(Core::RightPadLow8_32)
+        | CoreExtension::Core(Core::RightPadHigh8_32)
+        | CoreExtension::Core(Core::RightExtend8_32)
+        | CoreExtension::Core(Core::LeftPadLow16_32)
+        | CoreExtension::Core(Core::LeftPadHigh16_32)
+        | CoreExtension::Core(Core::LeftExtend16_32)
+        | CoreExtension::Core(Core::RightPadLow16_32)
+        | CoreExtension::Core(Core::RightPadHigh16_32)
+        | CoreExtension::Core(Core::RightExtend16_32)
+        | CoreExtension::Core(Core::LeftShiftWith32)
+        | CoreExtension::Core(Core::RightShiftWith32)
+        | CoreExtension::Core(Core::LeftShift32)
+        | CoreExtension::Core(Core::RightShift32)
+        | CoreExtension::Core(Core::LeftRotate32)
+        | CoreExtension::Core(Core::RightRotate32) => U32.into(),
+        CoreExtension::Core(Core::Low64)
+        | CoreExtension::Core(Core::High64)
+        | CoreExtension::Core(Core::Complement64)
+        | CoreExtension::Core(Core::And64)
+        | CoreExtension::Core(Core::Or64)
+        | CoreExtension::Core(Core::Xor64)
+        | CoreExtension::Core(Core::Maj64)
+        | CoreExtension::Core(Core::XorXor64)
+        | CoreExtension::Core(Core::Ch64)
+        | CoreExtension::Core(Core::LeftPadLow1_64)
+        | CoreExtension::Core(Core::LeftPadHigh1_64)
+        | CoreExtension::Core(Core::LeftExtend1_64)
+        | CoreExtension::Core(Core::RightPadLow1_64)
+        | CoreExtension::Core(Core::RightPadHigh1_64)
+        | CoreExtension::Core(Core::LeftPadLow8_64)
+        | CoreExtension::Core(Core::LeftPadHigh8_64)
+        | CoreExtension::Core(Core::LeftExtend8_64)
+        | CoreExtension::Core(Core::RightPadLow8_64)
+        | CoreExtension::Core(Core::RightPadHigh8_64)
+        | CoreExtension::Core(Core::RightExtend8_64)
+        | CoreExtension::Core(Core::LeftPadLow16_64)
+        | CoreExtension::Core(Core::LeftPadHigh16_64)
+        | CoreExtension::Core(Core::LeftExtend16_64)
+        | CoreExtension::Core(Core::RightPadLow16_64)
+        | CoreExtension::Core(Core::RightPadHigh16_64)
+        | CoreExtension::Core(Core::RightExtend16_64)
+        | CoreExtension::Core(Core::LeftPadLow32_64)
+        | CoreExtension::Core(Core::LeftPadHigh32_64)
+        | CoreExtension::Core(Core::LeftExtend32_64)
+        | CoreExtension::Core(Core::RightPadLow32_64)
+        | CoreExtension::Core(Core::RightPadHigh32_64)
+        | CoreExtension::Core(Core::RightExtend32_64)
+        | CoreExtension::Core(Core::LeftShiftWith64)
+        | CoreExtension::Core(Core::RightShiftWith64)
+        | CoreExtension::Core(Core::LeftShift64)
+        | CoreExtension::Core(Core::RightShift64)
+        | CoreExtension::Core(Core::LeftRotate64)
+        | CoreExtension::Core(Core::RightRotate64) => U64.into(),
+        CoreExtension::Core(Core::FullLeftShift8_1) => tuple([U1, U8]),
+        CoreExtension::Core(Core::FullLeftShift8_2) => tuple([U2, U8]),
+        CoreExtension::Core(Core::FullLeftShift8_4) => tuple([U4, U8]),
+        CoreExtension::Core(Core::FullLeftShift16_1) => tuple([U1, U16]),
+        CoreExtension::Core(Core::FullLeftShift16_2) => tuple([U2, U16]),
+        CoreExtension::Core(Core::FullLeftShift16_4) => tuple([U4, U16]),
+        CoreExtension::Core(Core::FullLeftShift16_8) => tuple([U8, U16]),
+        CoreExtension::Core(Core::FullLeftShift32_1) => tuple([U1, U32]),
+        CoreExtension::Core(Core::FullLeftShift32_2) => tuple([U2, U32]),
+        CoreExtension::Core(Core::FullLeftShift32_4) => tuple([U4, U32]),
+        CoreExtension::Core(Core::FullLeftShift32_8) => tuple([U8, U32]),
+        CoreExtension::Core(Core::FullLeftShift32_16) => tuple([U16, U32]),
+        CoreExtension::Core(Core::FullLeftShift64_1) => tuple([U1, U64]),
+        CoreExtension::Core(Core::FullLeftShift64_2) => tuple([U2, U64]),
+        CoreExtension::Core(Core::FullLeftShift64_4) => tuple([U4, U64]),
+        CoreExtension::Core(Core::FullLeftShift64_8) => tuple([U8, U64]),
+        CoreExtension::Core(Core::FullLeftShift64_16) => tuple([U16, U64]),
+        CoreExtension::Core(Core::FullLeftShift64_32) => tuple([U32, U64]),
+        CoreExtension::Core(Core::FullRightShift8_1) => tuple([U8, U1]),
+        CoreExtension::Core(Core::FullRightShift8_2) => tuple([U8, U2]),
+        CoreExtension::Core(Core::FullRightShift8_4) => tuple([U8, U4]),
+        CoreExtension::Core(Core::FullRightShift16_1) => tuple([U16, U1]),
+        CoreExtension::Core(Core::FullRightShift16_2) => tuple([U16, U2]),
+        CoreExtension::Core(Core::FullRightShift16_4) => tuple([U16, U4]),
+        CoreExtension::Core(Core::FullRightShift16_8) => tuple([U16, U8]),
+        CoreExtension::Core(Core::FullRightShift32_1) => tuple([U32, U1]),
+        CoreExtension::Core(Core::FullRightShift32_2) => tuple([U32, U2]),
+        CoreExtension::Core(Core::FullRightShift32_4) => tuple([U32, U4]),
+        CoreExtension::Core(Core::FullRightShift32_8) => tuple([U32, U8]),
+        CoreExtension::Core(Core::FullRightShift32_16) => tuple([U32, U16]),
+        CoreExtension::Core(Core::FullRightShift64_1) => tuple([U64, U1]),
+        CoreExtension::Core(Core::FullRightShift64_2) => tuple([U64, U2]),
+        CoreExtension::Core(Core::FullRightShift64_4) => tuple([U64, U4]),
+        CoreExtension::Core(Core::FullRightShift64_8) => tuple([U64, U8]),
+        CoreExtension::Core(Core::FullRightShift64_16) => tuple([U64, U16]),
+        CoreExtension::Core(Core::FullRightShift64_32) => tuple([U64, U32]),
+        /*
+         * Arithmetic
+         */
+        CoreExtension::Core(Core::Le8)
+        | CoreExtension::Core(Core::Lt8)
+        | CoreExtension::Core(Core::Le16)
+        | CoreExtension::Core(Core::Lt16)
+        | CoreExtension::Core(Core::Le32)
+        | CoreExtension::Core(Core::Lt32)
+        | CoreExtension::Core(Core::Le64)
+        | CoreExtension::Core(Core::Lt64)
+        | CoreExtension::Core(Core::IsZero8)
+        | CoreExtension::Core(Core::IsOne8)
+        | CoreExtension::Core(Core::IsZero16)
+        | CoreExtension::Core(Core::IsOne16)
+        | CoreExtension::Core(Core::IsZero32)
+        | CoreExtension::Core(Core::IsOne32)
+        | CoreExtension::Core(Core::IsZero64)
+        | CoreExtension::Core(Core::IsOne64)
+        | CoreExtension::Core(Core::Divides8)
+        | CoreExtension::Core(Core::Divides16)
+        | CoreExtension::Core(Core::Divides32)
+        | CoreExtension::Core(Core::Divides64) => bool(),
+        CoreExtension::Core(Core::One8)
+        | CoreExtension::Core(Core::Min8)
+        | CoreExtension::Core(Core::Max8)
+        | CoreExtension::Core(Core::Divide8)
+        | CoreExtension::Core(Core::Modulo8)
+        | CoreExtension::Core(Core::Median8) => U8.into(),
+        CoreExtension::Core(Core::One16)
+        | CoreExtension::Core(Core::Min16)
+        | CoreExtension::Core(Core::Max16)
+        | CoreExtension::Core(Core::Divide16)
+        | CoreExtension::Core(Core::Modulo16)
+        | CoreExtension::Core(Core::Multiply8)
+        | CoreExtension::Core(Core::FullMultiply8)
+        | CoreExtension::Core(Core::Median16) => U16.into(),
+        CoreExtension::Core(Core::One32)
+        | CoreExtension::Core(Core::Min32)
+        | CoreExtension::Core(Core::Max32)
+        | CoreExtension::Core(Core::Divide32)
+        | CoreExtension::Core(Core::Modulo32)
+        | CoreExtension::Core(Core::Multiply16)
+        | CoreExtension::Core(Core::FullMultiply16)
+        | CoreExtension::Core(Core::Median32) => U32.into(),
+        CoreExtension::Core(Core::One64)
+        | CoreExtension::Core(Core::Min64)
+        | CoreExtension::Core(Core::Max64)
+        | CoreExtension::Core(Core::Divide64)
+        | CoreExtension::Core(Core::Modulo64)
+        | CoreExtension::Core(Core::Multiply32)
+        | CoreExtension::Core(Core::FullMultiply32)
+        | CoreExtension::Core(Core::Median64) => U64.into(),
+        CoreExtension::Core(Core::Multiply64) | CoreExtension::Core(Core::FullMultiply64) => {
+            U128.into()
+        }
+        CoreExtension::Core(Core::Increment8)
+        | CoreExtension::Core(Core::Negate8)
+        | CoreExtension::Core(Core::Decrement8)
+        | CoreExtension::Core(Core::Add8)
+        | CoreExtension::Core(Core::Subtract8)
+        | CoreExtension::Core(Core::FullAdd8)
+        | CoreExtension::Core(Core::FullSubtract8)
+        | CoreExtension::Core(Core::FullIncrement8)
+        | CoreExtension::Core(Core::FullDecrement8) => tuple([bool(), U8.into()]),
+        CoreExtension::Core(Core::Increment16)
+        | CoreExtension::Core(Core::Negate16)
+        | CoreExtension::Core(Core::Decrement16)
+        | CoreExtension::Core(Core::Add16)
+        | CoreExtension::Core(Core::Subtract16)
+        | CoreExtension::Core(Core::FullAdd16)
+        | CoreExtension::Core(Core::FullSubtract16)
+        | CoreExtension::Core(Core::FullIncrement16)
+        | CoreExtension::Core(Core::FullDecrement16) => tuple([bool(), U16.into()]),
+        CoreExtension::Core(Core::Increment32)
+        | CoreExtension::Core(Core::Negate32)
+        | CoreExtension::Core(Core::Decrement32)
+        | CoreExtension::Core(Core::Add32)
+        | CoreExtension::Core(Core::Subtract32)
+        | CoreExtension::Core(Core::FullAdd32)
+        | CoreExtension::Core(Core::FullSubtract32)
+        | CoreExtension::Core(Core::FullIncrement32)
+        | CoreExtension::Core(Core::FullDecrement32) => tuple([bool(), U32.into()]),
+        CoreExtension::Core(Core::Increment64)
+        | CoreExtension::Core(Core::Negate64)
+        | CoreExtension::Core(Core::Decrement64)
+        | CoreExtension::Core(Core::Add64)
+        | CoreExtension::Core(Core::Subtract64)
+        | CoreExtension::Core(Core::FullAdd64)
+        | CoreExtension::Core(Core::FullSubtract64)
+        | CoreExtension::Core(Core::FullIncrement64)
+        | CoreExtension::Core(Core::FullDecrement64) => tuple([bool(), U64.into()]),
+        CoreExtension::Core(Core::DivMod8) => tuple([U8, U8]),
+        CoreExtension::Core(Core::DivMod16) => tuple([U16, U16]),
+        CoreExtension::Core(Core::DivMod32) => tuple([U32, U32]),
+        CoreExtension::Core(Core::DivMod64) => tuple([U64, U64]),
+        CoreExtension::Core(Core::DivMod128_64) => tuple([U64, U64]),
+        /*
+         * Hash functions
+         */
+        CoreExtension::Core(Core::Sha256Iv)
+        | CoreExtension::Core(Core::Sha256Block)
+        | CoreExtension::Core(Core::Sha256Ctx8Finalize) => U256.into(),
+        CoreExtension::Core(Core::Sha256Ctx8Init)
+        | CoreExtension::Core(Core::Sha256Ctx8Add1)
+        | CoreExtension::Core(Core::Sha256Ctx8Add2)
+        | CoreExtension::Core(Core::Sha256Ctx8Add4)
+        | CoreExtension::Core(Core::Sha256Ctx8Add8)
+        | CoreExtension::Core(Core::Sha256Ctx8Add16)
+        | CoreExtension::Core(Core::Sha256Ctx8Add32)
+        | CoreExtension::Core(Core::Sha256Ctx8Add64)
+        | CoreExtension::Core(Core::Sha256Ctx8Add128)
+        | CoreExtension::Core(Core::Sha256Ctx8Add256)
+        | CoreExtension::Core(Core::Sha256Ctx8Add512)
+        | CoreExtension::Core(Core::Sha256Ctx8AddBuffer511) => Ctx8.into(),
+        /*
+         * Elliptic curve functions
+         */
+        CoreExtension::Core(Core::PointVerify1) | CoreExtension::Core(Core::LinearVerify1) => {
+            AliasedType::unit()
+        }
+        CoreExtension::Core(Core::GejIsInfinity)
+        | CoreExtension::Core(Core::GejEquiv)
+        | CoreExtension::Core(Core::GejGeEquiv)
+        | CoreExtension::Core(Core::GejXEquiv)
+        | CoreExtension::Core(Core::GejYIsOdd)
+        | CoreExtension::Core(Core::GejIsOnCurve)
+        | CoreExtension::Core(Core::GeIsOnCurve)
+        | CoreExtension::Core(Core::ScalarIsZero)
+        | CoreExtension::Core(Core::FeIsZero)
+        | CoreExtension::Core(Core::FeIsOdd) => bool(),
+        CoreExtension::Core(Core::GeNegate)
+        | CoreExtension::Core(Core::HashToCurve)
+        | CoreExtension::Core(Core::Swu) => Ge.into(),
+        CoreExtension::Core(Core::Decompress) | CoreExtension::Core(Core::GejNormalize) => {
+            option(Ge)
+        }
+        CoreExtension::Core(Core::LinearCombination1)
+        | CoreExtension::Core(Core::Scale)
+        | CoreExtension::Core(Core::Generate)
+        | CoreExtension::Core(Core::GejInfinity)
+        | CoreExtension::Core(Core::GejNegate)
+        | CoreExtension::Core(Core::GejDouble)
+        | CoreExtension::Core(Core::GejAdd)
+        | CoreExtension::Core(Core::GejGeAdd)
+        | CoreExtension::Core(Core::GejRescale) => Gej.into(),
+        CoreExtension::Core(Core::GejGeAddEx) => tuple([Fe, Gej]),
+        CoreExtension::Core(Core::ScalarNormalize)
+        | CoreExtension::Core(Core::ScalarNegate)
+        | CoreExtension::Core(Core::ScalarAdd)
+        | CoreExtension::Core(Core::ScalarSquare)
+        | CoreExtension::Core(Core::ScalarMultiply)
+        | CoreExtension::Core(Core::ScalarMultiplyLambda)
+        | CoreExtension::Core(Core::ScalarInvert) => Scalar.into(),
+        CoreExtension::Core(Core::FeNormalize)
+        | CoreExtension::Core(Core::FeNegate)
+        | CoreExtension::Core(Core::FeAdd)
+        | CoreExtension::Core(Core::FeSquare)
+        | CoreExtension::Core(Core::FeMultiply)
+        | CoreExtension::Core(Core::FeMultiplyBeta)
+        | CoreExtension::Core(Core::FeInvert) => Fe.into(),
+        CoreExtension::Core(Core::FeSquareRoot) => option(Fe),
+        /*
+         * Digital signatures
+         */
+        CoreExtension::Core(Core::CheckSigVerify) | CoreExtension::Core(Core::Bip0340Verify) => {
+            AliasedType::unit()
+        }
+        /*
+         * Bitcoin (without primitives)
+         */
+        CoreExtension::Core(Core::ParseLock) => either(Height, Time),
+        CoreExtension::Core(Core::ParseSequence) => option(either(Distance, Duration)),
+        CoreExtension::Core(Core::TapdataInit) => Ctx8.into(),
+        /*
+         * Script operations
+         */
+        CoreExtension::GetOpcodeFromScript => U8.into(),
+        CoreExtension::GetPubkeyFromScript => Pubkey.into(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1155,7 +2031,7 @@ mod tests {
     fn compatible_source_type() {
         for jet in ElementsExtension::ALL {
             let resolved_ty = ResolvedType::tuple(
-                source_type(jet)
+                source_type_elements_extension(jet)
                     .into_iter()
                     .map(|t| t.resolve_builtin().unwrap()),
             );
@@ -1170,7 +2046,9 @@ mod tests {
     #[test]
     fn compatible_target_type() {
         for jet in ElementsExtension::ALL {
-            let resolved_ty = target_type(jet).resolve_builtin().unwrap();
+            let resolved_ty = target_type_elements_extension(jet)
+                .resolve_builtin()
+                .unwrap();
             let structural_ty = StructuralType::from(&resolved_ty);
             let simplicity_ty = jet.target_ty().to_final();
 

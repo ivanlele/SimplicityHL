@@ -1,4 +1,4 @@
-use simplicityhl::simplicity_unchained::jets::unchained::ElementsExtension;
+use simplicityhl::simplicity_unchained::jets::elements::ElementsExtension;
 
 use simplicityhl::simplicity::jet::Elements;
 use std::fmt;

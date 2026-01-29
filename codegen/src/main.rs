@@ -4,7 +4,7 @@ use std::io;
 use simplicityhl::simplicity::jet::Jet;
 use simplicityhl::types::TypeDeconstructible;
 
-use simplicityhl::simplicity_unchained::jets::unchained::ElementsExtension;
+use simplicityhl::simplicity_unchained::jets::elements::ElementsExtension;
 
 mod jet;
 

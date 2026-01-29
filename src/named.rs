@@ -196,13 +196,13 @@ where
 /// on the original SimplicityHL program before it is compiled to Simplicity.
 pub fn populate_witnesses<J: Jet>(
     node: &CommitNode<J>,
-    values: WitnessValues,
+    values: WitnessValues<J>,
 ) -> Result<Arc<node::RedeemNode<J>>, String> {
-    struct Populator {
-        values: WitnessValues,
+    struct Populator<J: Jet> {
+        values: WitnessValues<J>,
     }
 
-    impl<J: Jet> Converter<WithNames<node::Commit<J>>, node::Redeem<J>> for Populator {
+    impl<J: Jet> Converter<WithNames<node::Commit<J>>, node::Redeem<J>> for Populator<J> {
         type Error = String;
 
         fn convert_witness(

@@ -4,6 +4,7 @@ use std::sync::Arc;
 use either::Either;
 use miniscript::bitcoin::hex::DisplayHex;
 use miniscript::iter::{Tree, TreeLike};
+use simplicity::jet::Jet;
 use simplicity::types::Final as SimType;
 use simplicity::{BitCollector, Value as SimValue, ValueRef};
 
@@ -364,11 +365,11 @@ pub trait ValueConstructible: Sized + From<bool> + From<UIntValue> {
 
 /// The structure of a SimplicityHL value.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum ValueInner {
+pub enum ValueInner<J: Jet> {
     /// Left value.
-    Either(Either<Arc<Value>, Arc<Value>>),
+    Either(Either<Arc<Value<J>>, Arc<Value<J>>>),
     /// Option value.
-    Option(Option<Arc<Value>>),
+    Option(Option<Arc<Value<J>>>),
     /// Boolean value.
     Boolean(bool),
     /// Unsigned integer.
@@ -376,26 +377,27 @@ pub enum ValueInner {
     /// Tuple of values.
     ///
     /// Each component may have a different type.
-    Tuple(Arc<[Value]>),
+    Tuple(Arc<[Value<J>]>),
     /// Array of values.
     ///
     /// Each element must have the same type.
-    Array(Arc<[Value]>),
+    Array(Arc<[Value<J>]>),
     /// Bounded list of values.
     ///
     /// Each element must have the same type.
     // FIXME: Prevent construction of invalid lists (that run out of bounds)
-    List(Arc<[Value]>, NonZeroPow2Usize),
+    List(Arc<[Value<J>]>, NonZeroPow2Usize),
 }
 
 /// A SimplicityHL value.
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub struct Value {
-    inner: ValueInner,
+pub struct Value<J: Jet> {
+    inner: ValueInner<J>,
     ty: ResolvedType,
+    _marker: std::marker::PhantomData<J>,
 }
 
-impl TreeLike for &Value {
+impl<J: Jet> TreeLike for &Value<J> {
     fn as_node(&self) -> Tree<Self> {
         match &self.inner {
             ValueInner::Option(None) | ValueInner::Boolean(_) | ValueInner::UInt(_) => {
@@ -411,13 +413,13 @@ impl TreeLike for &Value {
     }
 }
 
-impl fmt::Debug for Value {
+impl<J: Jet> fmt::Debug for Value<J> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self, self.ty())
     }
 }
 
-impl fmt::Display for Value {
+impl<J: Jet> fmt::Display for Value<J> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut print_hex_byte_array = false;
         for data in self.verbose_pre_order_iter() {
@@ -510,13 +512,14 @@ impl fmt::Display for Value {
     }
 }
 
-impl ValueConstructible for Value {
+impl<J: Jet> ValueConstructible for Value<J> {
     type Type = ResolvedType;
 
     fn left(left: Self, right: Self::Type) -> Self {
         Self {
             ty: ResolvedType::either(left.ty().clone(), right),
             inner: ValueInner::Either(Either::Left(Arc::new(left))),
+            _marker: std::marker::PhantomData,
         }
     }
 
@@ -524,6 +527,7 @@ impl ValueConstructible for Value {
         Self {
             ty: ResolvedType::either(left, right.ty().clone()),
             inner: ValueInner::Either(Either::Right(Arc::new(right))),
+            _marker: std::marker::PhantomData,
         }
     }
 
@@ -531,6 +535,7 @@ impl ValueConstructible for Value {
         Self {
             inner: ValueInner::Option(None),
             ty: ResolvedType::option(inner),
+            _marker: std::marker::PhantomData,
         }
     }
 
@@ -538,6 +543,7 @@ impl ValueConstructible for Value {
         Self {
             ty: ResolvedType::option(inner.ty().clone()),
             inner: ValueInner::Option(Some(Arc::new(inner))),
+            _marker: std::marker::PhantomData,
         }
     }
 
@@ -547,6 +553,7 @@ impl ValueConstructible for Value {
         Self {
             inner: ValueInner::Tuple(values),
             ty,
+            _marker: std::marker::PhantomData,
         }
     }
 
@@ -561,6 +568,7 @@ impl ValueConstructible for Value {
         Self {
             ty: ResolvedType::array(ty, values.len()),
             inner: ValueInner::Array(values),
+            _marker: std::marker::PhantomData,
         }
     }
 
@@ -583,31 +591,34 @@ impl ValueConstructible for Value {
         Self {
             inner: ValueInner::List(elements, bound),
             ty: ResolvedType::list(ty, bound),
+            _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl From<bool> for Value {
+impl<J: Jet> From<bool> for Value<J> {
     fn from(value: bool) -> Self {
         Self {
             inner: ValueInner::Boolean(value),
             ty: ResolvedType::boolean(),
+            _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl From<UIntValue> for Value {
+impl<J: Jet> From<UIntValue> for Value<J> {
     fn from(value: UIntValue) -> Self {
         Self {
             ty: value.get_type().into(),
             inner: ValueInner::UInt(value),
+            _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl Value {
+impl<J: Jet> Value<J> {
     /// Access the inner structure of the value.
-    pub const fn inner(&self) -> &ValueInner {
+    pub const fn inner(&self) -> &ValueInner<J> {
         &self.inner
     }
 
@@ -646,7 +657,7 @@ impl Value {
     }
 }
 
-impl Value {
+impl<J: Jet> Value<J> {
     /// Create value from a constant expression.
     ///
     /// ## Errors
@@ -658,7 +669,7 @@ impl Value {
     /// - Witness expressions
     /// - Match expressions
     /// - Call expressions
-    pub fn from_const_expr(expr: &ast::Expression) -> Option<Self> {
+    pub fn from_const_expr(expr: &ast::Expression<J>) -> Option<Self> {
         use ast::ExprTree;
         use ast::SingleExpressionInner as S;
 
@@ -783,8 +794,8 @@ impl Value {
 
     /// Parse a value of the given type from a string.
     pub fn parse_from_str(s: &str, ty: &ResolvedType) -> Result<Self, RichError> {
-        let parse_expr = parse::Expression::parse_from_str(s)?;
-        let ast_expr = ast::Expression::analyze_const(&parse_expr, ty)?;
+        let parse_expr = parse::Expression::<J>::parse_from_str(s)?;
+        let ast_expr = ast::Expression::<J>::analyze_const(&parse_expr, ty)?;
         Self::from_const_expr(&ast_expr)
             .ok_or(Error::ExpressionUnexpectedType(ty.clone()))
             .with_span(s)
@@ -792,7 +803,7 @@ impl Value {
 }
 
 #[cfg(feature = "arbitrary")]
-impl crate::ArbitraryOfType for Value {
+impl<J: Jet> crate::ArbitraryOfType for Value<J> {
     type Type = ResolvedType;
 
     fn arbitrary_of_type(
@@ -841,7 +852,7 @@ impl crate::ArbitraryOfType for Value {
 }
 
 #[cfg(feature = "arbitrary")]
-impl<'a> arbitrary::Arbitrary<'a> for Value {
+impl<'a, J: Jet> arbitrary::Arbitrary<'a> for Value<J> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         use crate::ArbitraryOfType;
 
@@ -999,8 +1010,8 @@ impl From<UIntValue> for StructuralValue {
     }
 }
 
-impl From<&Value> for StructuralValue {
-    fn from(value: &Value) -> Self {
+impl<J: Jet> From<&Value<J>> for StructuralValue {
+    fn from(value: &Value<J>) -> Self {
         let mut output = vec![];
         for data in value.post_order_iter() {
             match &data.node.inner {
@@ -1231,12 +1242,16 @@ mod destruct {
 
 #[cfg(test)]
 mod tests {
+    use simplicity_unchained::jets::elements::ElementsExtension;
+
     use super::*;
     use crate::parse;
     use crate::types::{StructuralType, TypeConstructible};
 
     #[test]
     fn display_value() {
+        type Value = super::Value<ElementsExtension>;
+
         let unit = Value::unit();
         assert_eq!("()", &unit.to_string());
         let singleton = Value::tuple([Value::u1(1)]);
@@ -1260,6 +1275,8 @@ mod tests {
 
     #[test]
     fn value_is_of_type() {
+        type Value = super::Value<ElementsExtension>;
+
         let bit = Value::from(false);
         let actual_boolean = ResolvedType::boolean();
         let structural_boolean = ResolvedType::either(ResolvedType::unit(), ResolvedType::unit());
@@ -1316,8 +1333,10 @@ mod tests {
         ];
 
         for (string, ty, expected_value) in string_ty_value {
-            let parse_expr = parse::Expression::parse_from_str(string).unwrap();
-            let ast_expr = ast::Expression::analyze_const(&parse_expr, &ty).unwrap();
+            let parse_expr =
+                parse::Expression::<ElementsExtension>::parse_from_str(string).unwrap();
+            let ast_expr =
+                ast::Expression::<ElementsExtension>::analyze_const(&parse_expr, &ty).unwrap();
             let parsed_value = Value::from_const_expr(&ast_expr).unwrap();
             assert_eq!(parsed_value, expected_value);
             assert!(parsed_value.is_of_type(&ty));

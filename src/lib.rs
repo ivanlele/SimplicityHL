@@ -21,10 +21,10 @@ pub mod types;
 pub mod value;
 mod witness;
 
+use std::str::FromStr;
 use std::sync::Arc;
 
-use simplicity_unchained::jets::environments::UnchainedEnv;
-use simplicity_unchained::jets::unchained::ElementsExtension;
+use simplicity::jet::Jet;
 
 use simplicity::{CommitNode, RedeemNode};
 
@@ -43,12 +43,13 @@ pub use crate::witness::{Arguments, Parameters, WitnessTypes, WitnessValues};
 ///
 /// A template has parameterized values that need to be supplied with arguments.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TemplateProgram {
-    simfony: ast::Program,
+pub struct TemplateProgram<J: Jet> {
+    simfony: ast::Program<J>,
     file: Arc<str>,
+    _marker: std::marker::PhantomData<J>,
 }
 
-impl TemplateProgram {
+impl<J: Jet> TemplateProgram<J> {
     /// Parse the template of a SimplicityHL program.
     ///
     /// ## Errors
@@ -56,11 +57,12 @@ impl TemplateProgram {
     /// The string is not a valid SimplicityHL program.
     pub fn new<Str: Into<Arc<str>>>(s: Str) -> Result<Self, String> {
         let file = s.into();
-        let parse_program = parse::Program::parse_from_str(&file)?;
+        let parse_program = parse::Program::<J>::parse_from_str(&file)?;
         let ast_program = ast::Program::analyze(&parse_program).with_file(Arc::clone(&file))?;
         Ok(Self {
             simfony: ast_program,
             file,
+            _marker: std::marker::PhantomData,
         })
     }
 
@@ -77,9 +79,9 @@ impl TemplateProgram {
     /// Use [`TemplateProgram::parameters`] to see which parameters the program has.
     pub fn instantiate(
         &self,
-        arguments: Arguments,
+        arguments: Arguments<J>,
         include_debug_symbols: bool,
-    ) -> Result<CompiledProgram, String> {
+    ) -> Result<CompiledProgram<J>, String> {
         arguments
             .is_consistent(self.simfony.parameters())
             .map_err(|error| error.to_string())?;
@@ -93,19 +95,21 @@ impl TemplateProgram {
             debug_symbols: self.simfony.debug_symbols(self.file.as_ref()),
             simplicity: commit,
             witness_types: self.simfony.witness_types().shallow_clone(),
+            _marker: std::marker::PhantomData,
         })
     }
 }
 
 /// A SimplicityHL program, compiled to Simplicity.
 #[derive(Clone, Debug)]
-pub struct CompiledProgram {
-    simplicity: Arc<named::CommitNode<ElementsExtension>>,
+pub struct CompiledProgram<J: Jet> {
+    simplicity: Arc<named::CommitNode<J>>,
     witness_types: WitnessTypes,
-    debug_symbols: DebugSymbols,
+    debug_symbols: DebugSymbols<J>,
+    _marker: std::marker::PhantomData<J>,
 }
 
-impl CompiledProgram {
+impl<J: Jet> CompiledProgram<J> {
     /// Parse and compile a SimplicityHL program from the given string.
     ///
     /// ## See
@@ -114,7 +118,7 @@ impl CompiledProgram {
     /// - [`TemplateProgram::instantiate`]
     pub fn new<Str: Into<Arc<str>>>(
         s: Str,
-        arguments: Arguments,
+        arguments: Arguments<J>,
         include_debug_symbols: bool,
     ) -> Result<Self, String> {
         TemplateProgram::new(s)
@@ -122,12 +126,12 @@ impl CompiledProgram {
     }
 
     /// Access the debug symbols for the Simplicity target code.
-    pub fn debug_symbols(&self) -> &DebugSymbols {
+    pub fn debug_symbols(&self) -> &DebugSymbols<J> {
         &self.debug_symbols
     }
 
     /// Access the Simplicity target code, without witness data.
-    pub fn commit(&self) -> Arc<CommitNode<ElementsExtension>> {
+    pub fn commit(&self) -> Arc<CommitNode<J>> {
         named::forget_names(&self.simplicity)
     }
 
@@ -137,7 +141,7 @@ impl CompiledProgram {
     ///
     /// - Witness values have a different type than declared in the SimplicityHL program.
     /// - There are missing witness values.
-    pub fn satisfy(&self, witness_values: WitnessValues) -> Result<SatisfiedProgram, String> {
+    pub fn satisfy(&self, witness_values: WitnessValues<J>) -> Result<SatisfiedProgram<J>, String> {
         self.satisfy_with_env(witness_values, None)
     }
 
@@ -150,9 +154,9 @@ impl CompiledProgram {
     /// - There are missing witness values.
     pub fn satisfy_with_env(
         &self,
-        witness_values: WitnessValues,
-        env: Option<&UnchainedEnv>,
-    ) -> Result<SatisfiedProgram, String> {
+        witness_values: WitnessValues<J>,
+        env: Option<&J::Environment>,
+    ) -> Result<SatisfiedProgram<J>, String> {
         witness_values
             .is_consistent(&self.witness_types)
             .map_err(|e| e.to_string())?;
@@ -170,12 +174,12 @@ impl CompiledProgram {
 
 /// A SimplicityHL program, compiled to Simplicity and satisfied with witness data.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SatisfiedProgram {
-    simplicity: Arc<RedeemNode<ElementsExtension>>,
-    debug_symbols: DebugSymbols,
+pub struct SatisfiedProgram<J: Jet> {
+    simplicity: Arc<RedeemNode<J>>,
+    debug_symbols: DebugSymbols<J>,
 }
 
-impl SatisfiedProgram {
+impl<J: Jet> SatisfiedProgram<J> {
     /// Parse, compile and satisfy a SimplicityHL program from the given string.
     ///
     /// ## See
@@ -185,8 +189,8 @@ impl SatisfiedProgram {
     /// - [`CompiledProgram::satisfy`]
     pub fn new<Str: Into<Arc<str>>>(
         s: Str,
-        arguments: Arguments,
-        witness_values: WitnessValues,
+        arguments: Arguments<J>,
+        witness_values: WitnessValues<J>,
         include_debug_symbols: bool,
     ) -> Result<Self, String> {
         let compiled = CompiledProgram::new(s, arguments, include_debug_symbols)?;
@@ -194,12 +198,12 @@ impl SatisfiedProgram {
     }
 
     /// Access the Simplicity target code, including witness data.
-    pub fn redeem(&self) -> &Arc<RedeemNode<ElementsExtension>> {
+    pub fn redeem(&self) -> &Arc<RedeemNode<J>> {
         &self.simplicity
     }
 
     /// Access the debug symbols for the Simplicity target code.
-    pub fn debug_symbols(&self) -> &DebugSymbols {
+    pub fn debug_symbols(&self) -> &DebugSymbols<J> {
         &self.debug_symbols
     }
 }
@@ -209,7 +213,40 @@ impl SatisfiedProgram {
 /// method for each selected member.
 #[macro_export]
 macro_rules! impl_eq_hash {
-    ($ty: ident; $($member: ident),*) => {
+    // With generic parameters and bounds
+    ($ty:ident < $($gen:ident : $bound:path),* >; $($member:ident),*) => {
+        impl<$($gen : $bound + PartialEq),*> PartialEq for $ty<$($gen),*> {
+            fn eq(&self, other: &Self) -> bool {
+                true $(&& self.$member() == other.$member())*
+            }
+        }
+
+        impl<$($gen : $bound + Eq),*> Eq for $ty<$($gen),*> {}
+
+        impl<$($gen : $bound + std::hash::Hash),*> std::hash::Hash for $ty<$($gen),*> {
+            fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                $(self.$member().hash(state);)*
+            }
+        }
+    };
+    // With generic parameters without bounds
+    ($ty:ident < $($gen:ident),+ >; $($member:ident),*) => {
+        impl<$($gen : PartialEq),*> PartialEq for $ty<$($gen),*> {
+            fn eq(&self, other: &Self) -> bool {
+                true $(&& self.$member() == other.$member())*
+            }
+        }
+
+        impl<$($gen : Eq),*> Eq for $ty<$($gen),*> {}
+
+        impl<$($gen : std::hash::Hash),*> std::hash::Hash for $ty<$($gen),*> {
+            fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                $(self.$member().hash(state);)*
+            }
+        }
+    };
+    // Without generic parameters
+    ($ty:ident; $($member:ident),*) => {
         impl PartialEq for $ty {
             fn eq(&self, other: &Self) -> bool {
                 true $(&& self.$member() == other.$member())*
@@ -267,11 +304,29 @@ pub trait ArbitraryOfType: Sized {
     ) -> arbitrary::Result<Self>;
 }
 
+pub enum JetEnvironment {
+    Elements,
+    Bitcoin,
+}
+
+impl FromStr for JetEnvironment {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "elements" => Ok(JetEnvironment::Elements),
+            "bitcoin" => Ok(JetEnvironment::Bitcoin),
+            _ => Err(format!("Unknown jet environment: {}", s)),
+        }
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use base64::display::Base64Display;
     use base64::engine::general_purpose::STANDARD;
     use simplicity::BitMachine;
+    use simplicity_unchained::jets::elements::ElementsExtension;
     use std::borrow::Cow;
     use std::path::Path;
 
@@ -284,7 +339,7 @@ pub(crate) mod tests {
         include_fee_output: bool,
     }
 
-    impl TestCase<TemplateProgram> {
+    impl TestCase<TemplateProgram<ElementsExtension>> {
         pub fn template_file<P: AsRef<Path>>(program_file_path: P) -> Self {
             let program_text = std::fs::read_to_string(program_file_path).unwrap();
             Self::template_text(Cow::Owned(program_text))
@@ -307,16 +362,20 @@ pub(crate) mod tests {
         pub fn with_argument_file<P: AsRef<Path>>(
             self,
             arguments_file_path: P,
-        ) -> TestCase<CompiledProgram> {
+        ) -> TestCase<CompiledProgram<ElementsExtension>> {
             let arguments_text = std::fs::read_to_string(arguments_file_path).unwrap();
-            let arguments = match serde_json::from_str::<Arguments>(&arguments_text) {
-                Ok(x) => x,
-                Err(error) => panic!("{error}"),
-            };
+            let arguments =
+                match serde_json::from_str::<Arguments<ElementsExtension>>(&arguments_text) {
+                    Ok(x) => x,
+                    Err(error) => panic!("{error}"),
+                };
             self.with_arguments(arguments)
         }
 
-        pub fn with_arguments(self, arguments: Arguments) -> TestCase<CompiledProgram> {
+        pub fn with_arguments(
+            self,
+            arguments: Arguments<ElementsExtension>,
+        ) -> TestCase<CompiledProgram<ElementsExtension>> {
             let program = match self.program.instantiate(arguments, true) {
                 Ok(x) => x,
                 Err(error) => panic!("{error}"),
@@ -330,34 +389,35 @@ pub(crate) mod tests {
         }
     }
 
-    impl TestCase<CompiledProgram> {
+    impl TestCase<CompiledProgram<ElementsExtension>> {
         pub fn program_file<P: AsRef<Path>>(program_file_path: P) -> Self {
-            TestCase::<TemplateProgram>::template_file(program_file_path)
-                .with_arguments(Arguments::default())
+            TestCase::<TemplateProgram<ElementsExtension>>::template_file(program_file_path)
+                .with_arguments(Arguments::<ElementsExtension>::default())
         }
 
         pub fn program_text(program_text: Cow<str>) -> Self {
-            TestCase::<TemplateProgram>::template_text(program_text)
-                .with_arguments(Arguments::default())
+            TestCase::<TemplateProgram<ElementsExtension>>::template_text(program_text)
+                .with_arguments(Arguments::<ElementsExtension>::default())
         }
 
         #[cfg(feature = "serde")]
         pub fn with_witness_file<P: AsRef<Path>>(
             self,
             witness_file_path: P,
-        ) -> TestCase<SatisfiedProgram> {
+        ) -> TestCase<SatisfiedProgram<ElementsExtension>> {
             let witness_text = std::fs::read_to_string(witness_file_path).unwrap();
-            let witness_values = match serde_json::from_str::<WitnessValues>(&witness_text) {
-                Ok(x) => x,
-                Err(error) => panic!("{error}"),
-            };
+            let witness_values =
+                match serde_json::from_str::<WitnessValues<ElementsExtension>>(&witness_text) {
+                    Ok(x) => x,
+                    Err(error) => panic!("{error}"),
+                };
             self.with_witness_values(witness_values)
         }
 
         pub fn with_witness_values(
             self,
-            witness_values: WitnessValues,
-        ) -> TestCase<SatisfiedProgram> {
+            witness_values: WitnessValues<ElementsExtension>,
+        ) -> TestCase<SatisfiedProgram<ElementsExtension>> {
             let program = match self.program.satisfy(witness_values) {
                 Ok(x) => x,
                 Err(error) => panic!("{error}"),
@@ -391,12 +451,12 @@ pub(crate) mod tests {
         #[allow(dead_code)]
         pub fn print_sighash_all(self) -> Self {
             let env = dummy_env::dummy_with(self.lock_time, self.sequence, self.include_fee_output);
-            dbg!(env.elements_env.c_tx_env().sighash_all());
+            dbg!(env.env.c_tx_env().sighash_all());
             self
         }
     }
 
-    impl TestCase<SatisfiedProgram> {
+    impl TestCase<SatisfiedProgram<ElementsExtension>> {
         #[allow(dead_code)]
         pub fn print_encoding(self) -> Self {
             let (program_bytes, witness_bytes) = self.program.redeem().to_vec_with_witness();
@@ -430,29 +490,33 @@ pub(crate) mod tests {
     #[test]
     fn cat() {
         TestCase::program_file("./examples/cat.simf")
-            .with_witness_values(WitnessValues::default())
+            .with_witness_values(WitnessValues::<ElementsExtension>::default())
             .assert_run_success();
     }
 
     #[test]
     fn ctv() {
         TestCase::program_file("./examples/ctv.simf")
-            .with_witness_values(WitnessValues::default())
+            .with_witness_values(WitnessValues::<ElementsExtension>::default())
             .assert_run_success();
     }
 
     #[test]
     fn regression_153() {
         TestCase::program_file("./examples/array_fold_2n.simf")
-            .with_witness_values(WitnessValues::default())
+            .with_witness_values(WitnessValues::<ElementsExtension>::default())
             .assert_run_success();
     }
 
     #[test]
     #[cfg(feature = "serde")]
     fn sighash_non_interactive_fee_bump() {
-        let mut t = TestCase::program_file("./examples/non_interactive_fee_bump.simf")
-            .with_witness_file("./examples/non_interactive_fee_bump.wit");
+        use simplicity_unchained::jets::elements::ElementsExtension;
+
+        let mut t = TestCase::<CompiledProgram<ElementsExtension>>::program_file(
+            "./examples/non_interactive_fee_bump.simf",
+        )
+        .with_witness_file("./examples/non_interactive_fee_bump.wit");
         t.sequence = elements::Sequence::ENABLE_LOCKTIME_NO_RBF;
         t.lock_time = elements::LockTime::from_time(1734967235 + 600).unwrap();
         t.include_fee_output = true;
@@ -472,7 +536,7 @@ pub(crate) mod tests {
     #[test]
     fn hash_loop() {
         TestCase::program_file("./examples/hash_loop.simf")
-            .with_witness_values(WitnessValues::default())
+            .with_witness_values(WitnessValues::<ElementsExtension>::default())
             .assert_run_success();
     }
 
@@ -600,7 +664,7 @@ pub(crate) mod tests {
 }
 "#;
         TestCase::program_text(Cow::Borrowed(prog_text))
-            .with_witness_values(WitnessValues::default())
+            .with_witness_values(WitnessValues::<ElementsExtension>::default())
             .assert_run_success();
     }
 
@@ -614,10 +678,10 @@ fn main() {
     assert!(my_true());
 }
 "#;
-        match SatisfiedProgram::new(
+        match SatisfiedProgram::<ElementsExtension>::new(
             prog_text,
-            Arguments::default(),
-            WitnessValues::default(),
+            Arguments::<ElementsExtension>::default(),
+            WitnessValues::<ElementsExtension>::default(),
             false,
         ) {
             Ok(_) => panic!("Accepted faulty program"),
@@ -632,13 +696,16 @@ fn main() {
 
     #[test]
     fn fuzz_regression_2() {
-        parse::Program::parse_from_str("fn dbggscas(h: bool, asyxhaaaa: a) {\nfalse}\n\n").unwrap();
+        parse::Program::<ElementsExtension>::parse_from_str(
+            "fn dbggscas(h: bool, asyxhaaaa: a) {\nfalse}\n\n",
+        )
+        .unwrap();
     }
 
     #[test]
     #[ignore]
     fn fuzz_slow_unit_1() {
-        parse::Program::parse_from_str("fn fnnfn(MMet:(((sssss,((((((sssss,ssssss,ss,((((((sssss,ss,((((((sssss,ssssss,ss,((((((sssss,ssssss,((((((sssss,sssssssss,(((((((sssss,sssssssss,(((((ssss,((((((sssss,sssssssss,(((((((sssss,ssss,((((((sssss,ss,((((((sssss,ssssss,ss,((((((sssss,ssssss,((((((sssss,sssssssss,(((((((sssss,sssssssss,(((((ssss,((((((sssss,sssssssss,(((((((sssss,sssssssssssss,(((((((((((u|(").unwrap_err();
+        parse::Program::<ElementsExtension>::parse_from_str("fn fnnfn(MMet:(((sssss,((((((sssss,ssssss,ss,((((((sssss,ss,((((((sssss,ssssss,ss,((((((sssss,ssssss,((((((sssss,sssssssss,(((((((sssss,sssssssss,(((((ssss,((((((sssss,sssssssss,(((((((sssss,ssss,((((((sssss,ss,((((((sssss,ssssss,ss,((((((sssss,ssssss,((((((sssss,sssssssss,(((((((sssss,sssssssss,(((((ssss,((((((sssss,sssssssss,(((((((sssss,sssssssssssss,(((((((((((u|(").unwrap_err();
     }
 
     #[test]
@@ -650,7 +717,7 @@ fn main() {
     assert!(jet::eq_32(x, 32));
 }"#;
         TestCase::program_text(Cow::Borrowed(prog_text))
-            .with_witness_values(WitnessValues::default())
+            .with_witness_values(WitnessValues::<ElementsExtension>::default())
             .assert_run_success();
     }
 
@@ -665,7 +732,7 @@ fn main() {
     assert!(jet::eq_32(d, 3));
 }"#;
         TestCase::program_text(Cow::Borrowed(prog_text))
-            .with_witness_values(WitnessValues::default())
+            .with_witness_values(WitnessValues::<ElementsExtension>::default())
             .assert_run_success();
     }
 }

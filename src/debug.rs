@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use either::Either;
 use hashes::{sha256, Hash, HashEngine};
+use simplicity::jet::Jet;
 use simplicity::{hashes, Cmr};
 
 use crate::error::Span;
@@ -12,24 +13,42 @@ use crate::value::{StructuralValue, Value};
 /// Tracker of SimplicityHL call expressions inside Simplicity target code.
 ///
 /// Tracking happens via CMRs that are inserted into the Simplicity target code.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct DebugSymbols(HashMap<Cmr, TrackedCall>);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DebugSymbols<J: Jet>(HashMap<Cmr, TrackedCall<J>>);
+
+impl<J: Jet> Default for DebugSymbols<J> {
+    fn default() -> Self {
+        Self(HashMap::new())
+    }
+}
 
 /// Intermediate representation of tracked SimplicityHL call expressions
 /// that is mutable and that lacks information about the source file.
 ///
 /// The struct can be converted to [`DebugSymbols`] by providing the source file.
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
-pub(crate) struct CallTracker {
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub(crate) struct CallTracker<J: Jet> {
     next_id: u32,
     map: HashMap<Span, (Cmr, TrackedCallName)>,
+    _marker: std::marker::PhantomData<J>,
+}
+
+impl<J: Jet> Default for CallTracker<J> {
+    fn default() -> Self {
+        Self {
+            next_id: 0,
+            map: HashMap::new(),
+            _marker: std::marker::PhantomData,
+        }
+    }
 }
 
 /// Call expression with a debug symbol.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TrackedCall {
+pub struct TrackedCall<J: Jet> {
     text: Arc<str>,
     name: TrackedCallName,
+    _marker: std::marker::PhantomData<J>,
 }
 
 /// Name of a call expression with a debug symbol.
@@ -46,30 +65,30 @@ pub enum TrackedCallName {
 
 /// Fallible call expression with runtime input value.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct FallibleCall {
+pub struct FallibleCall<J: Jet> {
     text: Arc<str>,
-    name: FallibleCallName,
+    name: FallibleCallName<J>,
 }
 
 /// Name of a fallible call expression with runtime input value.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum FallibleCallName {
+pub enum FallibleCallName<J: Jet> {
     Assert,
     Panic,
     Jet,
-    UnwrapLeft(Value),
-    UnwrapRight(Value),
+    UnwrapLeft(Value<J>),
+    UnwrapRight(Value<J>),
     Unwrap,
 }
 
 /// Debug expression with runtime input value.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct DebugValue {
+pub struct DebugValue<J: Jet> {
     text: Arc<str>,
-    value: Value,
+    value: Value<J>,
 }
 
-impl DebugSymbols {
+impl<J: Jet> DebugSymbols<J> {
     /// Insert a tracked call expression.
     /// Use the SimplicityHL source `file` to extract the SimplicityHL text of the expression.
     pub(crate) fn insert(&mut self, span: Span, cmr: Cmr, name: TrackedCallName, file: &str) {
@@ -84,6 +103,7 @@ impl DebugSymbols {
             TrackedCall {
                 text: Arc::from(text),
                 name,
+                _marker: std::marker::PhantomData,
             },
         );
     }
@@ -94,7 +114,7 @@ impl DebugSymbols {
     }
 
     /// Get the call expression that is tracked by the given CMR.
-    pub fn get(&self, cmr: &Cmr) -> Option<&TrackedCall> {
+    pub fn get(&self, cmr: &Cmr) -> Option<&TrackedCall<J>> {
         self.0.get(cmr)
     }
 }
@@ -112,7 +132,7 @@ fn remove_excess_whitespace(s: &str) -> String {
     s.replace(is_excess_whitespace, "")
 }
 
-impl CallTracker {
+impl<J: Jet> CallTracker<J> {
     /// Track a new function call with the given `span`.
     ///
     /// ## Precondition
@@ -142,8 +162,8 @@ impl CallTracker {
     }
 
     /// Create debug symbols by attaching information from the source `file`.
-    pub fn with_file(&self, file: &str) -> DebugSymbols {
-        let mut debug_symbols = DebugSymbols::default();
+    pub fn with_file(&self, file: &str) -> DebugSymbols<J> {
+        let mut debug_symbols = DebugSymbols::<J>::default();
         for (span, (cmr, name)) in &self.map {
             debug_symbols.insert(*span, *cmr, name.clone(), file);
         }
@@ -151,7 +171,7 @@ impl CallTracker {
     }
 }
 
-impl TrackedCall {
+impl<J: Jet> TrackedCall<J> {
     /// Access the text of the SimplicityHL call expression.
     pub fn text(&self) -> &str {
         &self.text
@@ -168,7 +188,10 @@ impl TrackedCall {
     ///
     /// Return `None` if the Simplicity input value is of the wrong type,
     /// according to the debug symbol.
-    pub fn map_value(&self, value: &StructuralValue) -> Option<Either<FallibleCall, DebugValue>> {
+    pub fn map_value(
+        &self,
+        value: &StructuralValue,
+    ) -> Option<Either<FallibleCall<J>, DebugValue<J>>> {
         let name = match self.name() {
             TrackedCallName::Assert => FallibleCallName::Assert,
             TrackedCallName::Panic => FallibleCallName::Panic,
@@ -196,26 +219,26 @@ impl TrackedCall {
     }
 }
 
-impl FallibleCall {
+impl<J: Jet> FallibleCall<J> {
     /// Access the SimplicityHL text of the call expression.
     pub fn text(&self) -> &str {
         &self.text
     }
 
     /// Access the name of the call.
-    pub fn name(&self) -> &FallibleCallName {
+    pub fn name(&self) -> &FallibleCallName<J> {
         &self.name
     }
 }
 
-impl DebugValue {
+impl<J: Jet> DebugValue<J> {
     /// Access the SimplicityHL text of the debug expression.
     pub fn text(&self) -> &str {
         &self.text
     }
 
     /// Access the runtime input value.
-    pub fn value(&self) -> &Value {
+    pub fn value(&self) -> &Value<J> {
         &self.value
     }
 }

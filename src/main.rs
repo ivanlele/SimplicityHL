@@ -2,7 +2,8 @@ use base64::display::Base64Display;
 use base64::engine::general_purpose::STANDARD;
 use clap::{Arg, ArgAction, Command};
 
-use simplicityhl::{Arguments, CompiledProgram};
+use simplicity_unchained::jets::{bitcoin::CoreExtension, elements::ElementsExtension};
+use simplicityhl::{Arguments, CompiledProgram, JetEnvironment};
 use std::{env, fmt};
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -59,6 +60,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .action(ArgAction::SetTrue)
                     .help("Output in JSON"),
             )
+            .arg(
+                Arg::new("jet_env")
+                    .long("jet_env")
+                    .value_name("JET_ENV")
+                    .action(ArgAction::Set)
+                    .help("Specify the jet environment to use elements or bitcoin (default: 'elements')"),
+            )
     };
 
     let matches = command.get_matches();
@@ -69,43 +77,124 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let include_debug_symbols = matches.get_flag("debug");
     let output_json = matches.get_flag("json");
 
-    let compiled = CompiledProgram::new(prog_text, Arguments::default(), include_debug_symbols)?;
+    let jet_env = match matches.get_one::<String>("jet_env") {
+        Some(env_str) => match env_str.as_str() {
+            "elements" => JetEnvironment::Elements,
+            "bitcoin" => JetEnvironment::Bitcoin,
+            other => {
+                return Err(format!(
+                    "Unknown jet environment '{}'. Supported environments are 'elements' and 'bitcoin'.",
+                    other
+                )
+                .into())
+            }
+        },
+        None => JetEnvironment::Elements,
+    };
 
-    #[cfg(feature = "serde")]
-    let witness_opt = matches
-        .get_one::<String>("wit_file")
-        .map(|wit_file| -> Result<simplicityhl::WitnessValues, String> {
-            let wit_path = std::path::Path::new(wit_file);
-            let wit_text = std::fs::read_to_string(wit_path).map_err(|e| e.to_string())?;
-            let witness = serde_json::from_str::<simplicityhl::WitnessValues>(&wit_text).unwrap();
-            Ok(witness)
-        })
-        .transpose()?;
-    #[cfg(not(feature = "serde"))]
-    let witness_opt = if matches.contains_id("wit_file") {
-        return Err(
+    let output = match jet_env {
+        JetEnvironment::Elements => {
+            let compiled = CompiledProgram::<ElementsExtension>::new(
+                prog_text,
+                Arguments::default(),
+                include_debug_symbols,
+            )?;
+
+            #[cfg(feature = "serde")]
+            let witness_opt = matches
+                .get_one::<String>("wit_file")
+                .map(
+                    |wit_file| -> Result<simplicityhl::WitnessValues<ElementsExtension>, String> {
+                        let wit_path = std::path::Path::new(wit_file);
+                        let wit_text =
+                            std::fs::read_to_string(wit_path).map_err(|e| e.to_string())?;
+                        let witness = serde_json::from_str::<
+                            simplicityhl::WitnessValues<ElementsExtension>,
+                        >(&wit_text)
+                        .unwrap();
+                        Ok(witness)
+                    },
+                )
+                .transpose()?;
+            #[cfg(not(feature = "serde"))]
+            let witness_opt = if matches.contains_id("wit_file") {
+                return Err(
             "Program was compiled without the 'serde' feature and cannot process .wit files."
                 .into(),
         );
-    } else {
-        None
-    };
+            } else {
+                None
+            };
 
-    let (program_bytes, witness_bytes) = match witness_opt {
-        Some(witness) => {
-            let satisfied = compiled.satisfy(witness)?;
-            let (program_bytes, witness_bytes) = satisfied.redeem().to_vec_with_witness();
-            (program_bytes, Some(witness_bytes))
-        }
-        None => {
-            let program_bytes = compiled.commit().to_vec_without_witness();
-            (program_bytes, None)
-        }
-    };
+            let (program_bytes, witness_bytes) = match witness_opt {
+                Some(witness) => {
+                    let satisfied = compiled.satisfy(witness)?;
+                    let (program_bytes, witness_bytes) = satisfied.redeem().to_vec_with_witness();
+                    (program_bytes, Some(witness_bytes))
+                }
+                None => {
+                    let program_bytes = compiled.commit().to_vec_without_witness();
+                    (program_bytes, None)
+                }
+            };
 
-    let output = Output {
-        program: Base64Display::new(&program_bytes, &STANDARD).to_string(),
-        witness: witness_bytes.map(|bytes| Base64Display::new(&bytes, &STANDARD).to_string()),
+            Output {
+                program: Base64Display::new(&program_bytes, &STANDARD).to_string(),
+                witness: witness_bytes
+                    .map(|bytes| Base64Display::new(&bytes, &STANDARD).to_string()),
+            }
+        }
+        JetEnvironment::Bitcoin => {
+            let compiled = CompiledProgram::<CoreExtension>::new(
+                prog_text,
+                Arguments::default(),
+                include_debug_symbols,
+            )?;
+
+            #[cfg(feature = "serde")]
+            let witness_opt = matches
+                .get_one::<String>("wit_file")
+                .map(
+                    |wit_file| -> Result<simplicityhl::WitnessValues<CoreExtension>, String> {
+                        let wit_path = std::path::Path::new(wit_file);
+                        let wit_text =
+                            std::fs::read_to_string(wit_path).map_err(|e| e.to_string())?;
+                        let witness = serde_json::from_str::<
+                            simplicityhl::WitnessValues<CoreExtension>,
+                        >(&wit_text)
+                        .unwrap();
+                        Ok(witness)
+                    },
+                )
+                .transpose()?;
+            #[cfg(not(feature = "serde"))]
+            let witness_opt = if matches.contains_id("wit_file") {
+                return Err(
+            "Program was compiled without the 'serde' feature and cannot process .wit files."
+                .into(),
+        );
+            } else {
+                None
+            };
+
+            let (program_bytes, witness_bytes) = match witness_opt {
+                Some(witness) => {
+                    let satisfied = compiled.satisfy(witness)?;
+                    let (program_bytes, witness_bytes) = satisfied.redeem().to_vec_with_witness();
+                    (program_bytes, Some(witness_bytes))
+                }
+                None => {
+                    let program_bytes = compiled.commit().to_vec_without_witness();
+                    (program_bytes, None)
+                }
+            };
+
+            Output {
+                program: Base64Display::new(&program_bytes, &STANDARD).to_string(),
+                witness: witness_bytes
+                    .map(|bytes| Base64Display::new(&bytes, &STANDARD).to_string()),
+            }
+        }
     };
 
     if output_json {
