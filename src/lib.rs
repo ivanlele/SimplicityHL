@@ -330,6 +330,7 @@ pub(crate) mod tests {
     use std::borrow::Cow;
     use std::path::Path;
 
+    use crate::tracker::{DefaultTracker, TrackerLogLevel};
     use crate::*;
 
     pub(crate) struct TestCase<T> {
@@ -473,7 +474,12 @@ pub(crate) mod tests {
 
         fn run(self) -> Result<(), simplicity::bit_machine::ExecutionError> {
             let env = dummy_env::dummy_with(self.lock_time, self.sequence, self.include_fee_output);
-            let pruned = self.program.redeem().prune(&env)?;
+            let mut tracker = DefaultTracker::new(self.program.debug_symbols())
+                .with_log_level(TrackerLogLevel::Trace);
+            let pruned = self
+                .program
+                .redeem()
+                .prune_with_tracker(&env, &mut tracker)?;
             let mut mac = BitMachine::for_program(&pruned)
                 .expect("program should be within reasonable bounds");
             mac.exec(&pruned, &env).map(|_| ())
@@ -733,6 +739,38 @@ fn main() {
 }"#;
         TestCase::program_text(Cow::Borrowed(prog_text))
             .with_witness_values(WitnessValues::<ElementsExtension>::default())
+            .assert_run_success();
+    }
+
+    const LOCK_DISTANCE: &str = r#"fn main() {
+    let _: u16 = jet::tx_lock_distance();
+    jet::check_lock_distance(10);
+}
+"#;
+
+    const LOCK_DURATION: &str = r#"fn main() {
+    let _: u16 = jet::tx_lock_duration();
+    jet::check_lock_duration(10);
+}
+"#;
+
+    #[test]
+    fn test_timelock_sanity() {
+        let mut distance = TestCase::<CompiledProgram<ElementsExtension>>::program_text(
+            std::borrow::Cow::Borrowed(LOCK_DISTANCE),
+        );
+        distance.sequence = elements::Sequence::from_height(100);
+
+        let mut duration = TestCase::<CompiledProgram<ElementsExtension>>::program_text(
+            std::borrow::Cow::Borrowed(LOCK_DURATION),
+        );
+        duration.sequence = elements::Sequence::from_512_second_intervals(100);
+
+        distance
+            .with_witness_values(WitnessValues::default())
+            .assert_run_success();
+        duration
+            .with_witness_values(WitnessValues::default())
             .assert_run_success();
     }
 }

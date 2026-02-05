@@ -8,6 +8,7 @@ use simplicity_unchained::jets::bitcoin::CoreExtension;
 use simplicity_unchained::jets::elements::ElementsExtension;
 
 use simplicity::jet::Elements;
+use simplicity_unchained::jets::elements::ElementsTimelockDeprJets;
 
 fn tuple<A: Into<AliasedType>, I: IntoIterator<Item = A>>(elements: I) -> AliasedType {
     AliasedType::tuple(elements.into_iter().map(A::into))
@@ -624,6 +625,14 @@ pub fn source_type_elements_extension(jet: ElementsExtension) -> Vec<AliasedType
          */
         ElementsExtension::GetOpcodeFromScript => vec![U8.into()],
         ElementsExtension::GetPubkeyFromScript => vec![U8.into()],
+        // Wrappers for deprecated jets
+        ElementsExtension::ElementsTimelockDeprJets(inner_jet) => match inner_jet {
+            ElementsTimelockDeprJets::CheckLockDistance => vec![Distance.into()],
+            ElementsTimelockDeprJets::CheckLockDuration => vec![Duration.into()],
+            ElementsTimelockDeprJets::TxLockDistance | ElementsTimelockDeprJets::TxLockDuration => {
+                vec![]
+            }
+        },
     }
 }
 
@@ -1615,6 +1624,13 @@ pub fn target_type_elements_extension(jet: ElementsExtension) -> AliasedType {
          */
         ElementsExtension::GetOpcodeFromScript => U8.into(),
         ElementsExtension::GetPubkeyFromScript => Pubkey.into(),
+        // Deprecated jets wrapper
+        ElementsExtension::ElementsTimelockDeprJets(inner_jet) => match inner_jet {
+            ElementsTimelockDeprJets::CheckLockDistance
+            | ElementsTimelockDeprJets::CheckLockDuration => AliasedType::unit(),
+            ElementsTimelockDeprJets::TxLockDistance => Distance.into(),
+            ElementsTimelockDeprJets::TxLockDuration => Duration.into(),
+        },
     }
 }
 
