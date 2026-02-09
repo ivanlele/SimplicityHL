@@ -1,6 +1,4 @@
-use simplicityhl::simplicity_unchained::jets::elements::{
-    ElementsExtension, ElementsTimelockDeprJets,
-};
+use simplicityhl::simplicity_unchained::jets::elements::ElementsExtension;
 
 use simplicityhl::simplicity::jet::Elements;
 use std::fmt;
@@ -807,14 +805,6 @@ Return zero for any asset without fees."#,
         ElementsExtension::GetPubkeyFromScript => r#"Each pubkey is encoded as: [OP_PUSHBYTES_33][0x02 or 0x03][32 bytes X coordinate].
 Returns X only pubkeys from a script at the given index.
 Index should point to OP_PUSHBYTES_33 opcode in the script."#,
-        ElementsExtension::ElementsTimelockDeprJets(inner_jet) => {
-                match inner_jet {
-                        ElementsTimelockDeprJets::CheckLockDistance => documentation(ElementsExtension::Elements(Elements::CheckLockDistance)),
-                        ElementsTimelockDeprJets::CheckLockDuration => documentation(ElementsExtension::Elements(Elements::CheckLockDuration)),
-                        ElementsTimelockDeprJets::TxLockDistance => documentation(ElementsExtension::Elements(Elements::TxLockDistance)),
-                        ElementsTimelockDeprJets::TxLockDuration => documentation(ElementsExtension::Elements(Elements::TxLockDuration)),
-                }
-        }
     }
 }
 
