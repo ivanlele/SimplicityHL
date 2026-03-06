@@ -6,8 +6,7 @@ use std::sync::Arc;
 
 use either::Either;
 use miniscript::iter::{Tree, TreeLike};
-use simplicity::jet::Elements;
-use simplicity_unchained::jets::unchained::ElementsExtension;
+use simplicity_unchained::jets::custom_jet::CustomJet;
 
 use crate::debug::{CallTracker, DebugSymbols, TrackedCallName};
 use crate::error::{Error, RichError, Span, WithSpan};
@@ -273,7 +272,7 @@ impl_eq_hash!(Call; name, args);
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum CallName {
     /// Elements jet.
-    Jet(ElementsExtension),
+    Jet(CustomJet),
     /// [`Either::unwrap_left`].
     UnwrapLeft(ResolvedType),
     /// [`Either::unwrap_right`].
@@ -1291,14 +1290,29 @@ impl AbstractSyntaxTree for CallName {
         scope: &mut Scope,
     ) -> Result<Self, RichError> {
         match from.name() {
-            parse::CallName::Jet(name) => match ElementsExtension::from_str(name.as_inner()) {
-                Ok(
-                    ElementsExtension::Elements(Elements::CheckSigVerify)
-                    | ElementsExtension::Elements(Elements::Verify),
-                )
-                | Err(_) => Err(Error::JetDoesNotExist(name.clone())).with_span(from),
-                Ok(jet) => Ok(Self::Jet(jet)),
-            },
+            parse::CallName::Jet(name) => {
+                //match CustomJet::from_str(name.as_inner()) {
+                //    Ok(
+                //        CustomJet::Elements(Elements::CheckSigVerify)
+                //        | CustomJet::Elements(Elements::Verify),
+                //    )
+                //    | Err(_) => Err(Error::JetDoesNotExist(name.clone())).with_span(from),
+                //    Ok(jet) => Ok(Self::Jet(jet)),
+                //}
+
+                let check_sig_verify = CustomJet::from_str("check_sig_verify").unwrap();
+                let verify = CustomJet::from_str("verify").unwrap();
+
+                let try_from_str = CustomJet::from_str(name.as_inner());
+                if try_from_str
+                    .as_ref()
+                    .is_ok_and(|jet| *jet != check_sig_verify && *jet != verify)
+                {
+                    Ok(Self::Jet(try_from_str.unwrap()))
+                } else {
+                    Err(Error::JetDoesNotExist(name.clone())).with_span(from)
+                }
+            }
             parse::CallName::UnwrapLeft(right_ty) => scope
                 .resolve(right_ty)
                 .map(Self::UnwrapLeft)

@@ -23,8 +23,8 @@ mod witness;
 
 use std::sync::Arc;
 
-use simplicity_unchained::jets::environments::UnchainedEnv;
-use simplicity_unchained::jets::unchained::ElementsExtension;
+use simplicity_unchained::jets::custom_jet::CustomJet;
+use simplicity_unchained::jets::environments::ElementsUnchainedEnv;
 
 use simplicity::{CommitNode, RedeemNode};
 
@@ -100,7 +100,7 @@ impl TemplateProgram {
 /// A SimplicityHL program, compiled to Simplicity.
 #[derive(Clone, Debug)]
 pub struct CompiledProgram {
-    simplicity: Arc<named::CommitNode<ElementsExtension>>,
+    simplicity: Arc<named::CommitNode<CustomJet>>,
     witness_types: WitnessTypes,
     debug_symbols: DebugSymbols,
 }
@@ -127,7 +127,7 @@ impl CompiledProgram {
     }
 
     /// Access the Simplicity target code, without witness data.
-    pub fn commit(&self) -> Arc<CommitNode<ElementsExtension>> {
+    pub fn commit(&self) -> Arc<CommitNode<CustomJet>> {
         named::forget_names(&self.simplicity)
     }
 
@@ -151,7 +151,7 @@ impl CompiledProgram {
     pub fn satisfy_with_env(
         &self,
         witness_values: WitnessValues,
-        env: Option<&UnchainedEnv>,
+        env: Option<&ElementsUnchainedEnv>,
     ) -> Result<SatisfiedProgram, String> {
         witness_values
             .is_consistent(&self.witness_types)
@@ -171,7 +171,7 @@ impl CompiledProgram {
 /// A SimplicityHL program, compiled to Simplicity and satisfied with witness data.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SatisfiedProgram {
-    simplicity: Arc<RedeemNode<ElementsExtension>>,
+    simplicity: Arc<RedeemNode<CustomJet>>,
     debug_symbols: DebugSymbols,
 }
 
@@ -194,7 +194,7 @@ impl SatisfiedProgram {
     }
 
     /// Access the Simplicity target code, including witness data.
-    pub fn redeem(&self) -> &Arc<RedeemNode<ElementsExtension>> {
+    pub fn redeem(&self) -> &Arc<RedeemNode<CustomJet>> {
         &self.simplicity
     }
 
@@ -391,7 +391,7 @@ pub(crate) mod tests {
         #[allow(dead_code)]
         pub fn print_sighash_all(self) -> Self {
             let env = dummy_env::dummy_with(self.lock_time, self.sequence, self.include_fee_output);
-            dbg!(env.elements_env.c_tx_env().sighash_all());
+            dbg!(env.env.c_tx_env().sighash_all());
             self
         }
     }

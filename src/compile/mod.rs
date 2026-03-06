@@ -2,12 +2,12 @@
 
 mod builtins;
 
+use std::str::FromStr;
 use std::sync::Arc;
 
-use simplicity_unchained::jets::unchained::ElementsExtension;
+use simplicity_unchained::jets::custom_jet::CustomJet;
 
 use either::Either;
-use simplicity::jet::Elements;
 use simplicity::node::{CoreConstructible as _, JetConstructible as _};
 use simplicity::{types, Cmr, FailEntropy};
 
@@ -28,7 +28,7 @@ use crate::value::StructuralValue;
 use crate::witness::Arguments;
 use crate::Value;
 
-type ProgNode<'brand> = Arc<named::ConstructNode<'brand, ElementsExtension>>;
+type ProgNode<'brand> = Arc<named::ConstructNode<'brand, CustomJet>>;
 
 /// Each SimplicityHL expression expects an _input value_.
 /// A SimplicityHL expression is translated into a Simplicity expression
@@ -265,7 +265,7 @@ impl Program {
         &self,
         arguments: Arguments,
         include_debug_symbols: bool,
-    ) -> Result<Arc<named::CommitNode<ElementsExtension>>, RichError> {
+    ) -> Result<Arc<named::CommitNode<CustomJet>>, RichError> {
         types::Context::with_context(|ctx| {
             let mut scope = Scope::new(
                 ctx,
@@ -412,7 +412,7 @@ impl Call {
                 args.comp(&body).with_span(self)
             }
             CallName::Assert => {
-                let jet = ProgNode::jet(scope.ctx(), ElementsExtension::Elements(Elements::Verify));
+                let jet = ProgNode::jet(scope.ctx(), CustomJet::from_str("verify").unwrap());
                 scope.with_debug_symbol(args, &jet, self)
             }
             CallName::Panic => {

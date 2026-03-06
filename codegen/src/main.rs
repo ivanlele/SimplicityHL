@@ -1,15 +1,14 @@
 use std::fs::File;
 use std::io;
 
-use simplicityhl::simplicity::jet::Jet;
+use simplicityhl::simplicity::jet::{Elements, Jet};
+use simplicityhl::simplicity_unchained::jets::custom_jet::CustomJet;
 use simplicityhl::types::TypeDeconstructible;
-
-use simplicityhl::simplicity_unchained::jets::unchained::ElementsExtension;
 
 mod jet;
 
 /// Write a SimplicityHL jet as a Rust function to the sink.
-fn write_jet<W: io::Write>(jet: ElementsExtension, w: &mut W) -> io::Result<()> {
+fn write_jet<W: io::Write>(jet: Elements, w: &mut W) -> io::Result<()> {
     for line in jet::documentation(jet).lines() {
         match line.is_empty() {
             true => writeln!(w, "///")?,
@@ -21,7 +20,7 @@ fn write_jet<W: io::Write>(jet: ElementsExtension, w: &mut W) -> io::Result<()> 
     writeln!(w, "///")?;
     writeln!(w, "/// {} mWU _(milli weight units)_", jet.cost())?;
     write!(w, "pub fn {jet}(")?;
-    let parameters = simplicityhl::jet::source_type(jet);
+    let parameters = simplicityhl::jet::source_type(unsafe { CustomJet::from_base_jet(&jet) });
     for (i, ty) in parameters.iter().enumerate() {
         let identifier = (b'a' + i as u8) as char;
         if i == parameters.len() - 1 {
@@ -30,10 +29,14 @@ fn write_jet<W: io::Write>(jet: ElementsExtension, w: &mut W) -> io::Result<()> 
             write!(w, "{identifier}: {ty}, ")?;
         }
     }
-    let target = simplicityhl::jet::target_type(jet);
+    let target = simplicityhl::jet::target_type(unsafe { CustomJet::from_base_jet(&jet) });
     match target.is_unit() {
         true => writeln!(w, ") {{")?,
-        false => writeln!(w, ") -> {} {{", simplicityhl::jet::target_type(jet))?,
+        false => writeln!(
+            w,
+            ") -> {} {{",
+            simplicityhl::jet::target_type(unsafe { CustomJet::from_base_jet(&jet) })
+        )?,
     }
 
     writeln!(w, "    todo!()")?;

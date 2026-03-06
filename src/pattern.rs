@@ -444,7 +444,7 @@ mod tests {
     use super::*;
     use crate::named;
 
-    use simplicity_unchained::jets::unchained::ElementsExtension;
+    use simplicity_unchained::jets::custom_jet::CustomJet;
 
     #[test]
     fn translate_pattern() {
@@ -469,7 +469,7 @@ mod tests {
         for (target, expected_expr) in target_expr {
             simplicity::types::Context::with_context(|ctx| {
                 let expr = env
-                    .translate::<Arc<named::ConstructNode<ElementsExtension>>>(&ctx, &target)
+                    .translate::<Arc<named::ConstructNode<CustomJet>>>(&ctx, &target)
                     .unwrap();
                 assert_eq!(expected_expr, expr.as_ref().display_expr().to_string());
             });
