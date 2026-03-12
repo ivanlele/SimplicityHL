@@ -95,7 +95,8 @@ impl<'de> de::Visitor<'de> for ValueMapVisitor {
             None => return Err(de::Error::missing_field("type")),
         };
         match value {
-            Some(s) => Value::parse_from_str(s, &ty).map_err(de::Error::custom),
+            // may have problems with generic for parse_from_str
+            Some(s) => Value::parse_from_str::<()>(s, &ty).map_err(de::Error::custom),
             None => Err(de::Error::missing_field("value")),
         }
     }

@@ -23,7 +23,7 @@ type DebugSink<'a> = Box<dyn FnMut(&str, &Value) + 'a>;
 ///
 /// Arguments are: the jet that was executed, its input arguments (if successfully parsed),
 /// and the result (`None` if the jet failed).
-type JetTraceSink<'a> = Box<dyn FnMut(CustomJet, Option<&[Value]>, Option<Value>) + 'a>;
+type JetTraceSink<'a, E> = Box<dyn FnMut(CustomJet<E>, Option<&[Value]>, Option<Value>) + 'a>;
 
 /// Callback signature for receiving warnings during execution.
 type WarningSink<'a> = Box<dyn Fn(&str) + 'a>;
@@ -44,7 +44,7 @@ fn default_debug_sink(label: &str, value: &Value) {
 }
 
 /// Default jet trace sink that prints jet calls to stderr.
-fn default_jet_trace_sink(jet: CustomJet, args: Option<&[Value]>, result: Option<Value>) {
+fn default_jet_trace_sink<E>(jet: CustomJet<E>, args: Option<&[Value]>, result: Option<Value>) {
     print!("{jet:?}(");
     if let Some(args) = args {
         for (i, arg) in args.iter().enumerate() {
@@ -84,15 +84,15 @@ fn default_warning_sink(message: &str) {
 ///
 /// let pruned = program.prune_with_tracker(&env, &mut tracker)?;
 /// ```
-pub struct DefaultTracker<'a> {
+pub struct DefaultTracker<'a, E: 'static> {
     debug_symbols: &'a DebugSymbols,
     debug_sink: Option<DebugSink<'a>>,
-    jet_trace_sink: Option<JetTraceSink<'a>>,
+    jet_trace_sink: Option<JetTraceSink<'a, E>>,
     warning_sink: Option<WarningSink<'a>>,
     inner: SetTracker,
 }
 
-impl<'a> DefaultTracker<'a> {
+impl<'a, E> DefaultTracker<'a, E> {
     /// Creates a new tracker bound to the given debug symbol table.
     pub fn new(debug_symbols: &'a DebugSymbols) -> Self {
         Self {
@@ -121,7 +121,7 @@ impl<'a> DefaultTracker<'a> {
     /// Enables forwarding of jet call traces to the provided sink.
     pub fn with_jet_trace_sink<F>(mut self, sink: F) -> Self
     where
-        F: FnMut(CustomJet, Option<&[Value]>, Option<Value>) + 'a,
+        F: FnMut(CustomJet<E>, Option<&[Value]>, Option<Value>) + 'a,
     {
         self.jet_trace_sink = Some(Box::new(sink));
         self
@@ -175,8 +175,8 @@ impl<'a> DefaultTracker<'a> {
     /// Handles jet node execution by decoding arguments and results.
     fn handle_jet(
         &mut self,
-        node: &RedeemNode<CustomJet>,
-        jet: CustomJet,
+        node: &RedeemNode<CustomJet<E>>,
+        jet: CustomJet<E>,
         input: &FrameIter,
         output: &NodeOutput,
     ) {
@@ -215,8 +215,8 @@ impl<'a> DefaultTracker<'a> {
 
     /// Parses the result of a jet execution from the output frame.
     fn parse_jet_result(
-        node: &RedeemNode<CustomJet>,
-        jet: CustomJet,
+        node: &RedeemNode<CustomJet<E>>,
+        jet: CustomJet<E>,
         output: &NodeOutput,
     ) -> Option<Value> {
         match output.clone() {
@@ -250,7 +250,7 @@ impl<'a> DefaultTracker<'a> {
     /// Handles debug node execution by resolving symbols and decoding values.
     fn handle_debug(
         &mut self,
-        node: &RedeemNode<CustomJet>,
+        node: &RedeemNode<CustomJet<E>>,
         input: &FrameIter,
         cmr: &simplicity::Cmr,
     ) {
@@ -292,9 +292,9 @@ impl<'a> DefaultTracker<'a> {
     }
 }
 
-impl PruneTracker<CustomJet> for DefaultTracker<'_> {
+impl<E> PruneTracker<CustomJet<E>> for DefaultTracker<'_, E> {
     fn contains_left(&self, ihr: Ihr) -> bool {
-        if PruneTracker::<CustomJet>::contains_left(&self.inner, ihr) {
+        if PruneTracker::<CustomJet<E>>::contains_left(&self.inner, ihr) {
             return true;
         }
 
@@ -306,7 +306,7 @@ impl PruneTracker<CustomJet> for DefaultTracker<'_> {
     }
 
     fn contains_right(&self, ihr: Ihr) -> bool {
-        if PruneTracker::<CustomJet>::contains_right(&self.inner, ihr) {
+        if PruneTracker::<CustomJet<E>>::contains_right(&self.inner, ihr) {
             return true;
         }
 
@@ -318,8 +318,13 @@ impl PruneTracker<CustomJet> for DefaultTracker<'_> {
     }
 }
 
-impl ExecTracker<CustomJet> for DefaultTracker<'_> {
-    fn visit_node(&mut self, node: &RedeemNode<CustomJet>, input: FrameIter, output: NodeOutput) {
+impl<E> ExecTracker<CustomJet<E>> for DefaultTracker<'_, E> {
+    fn visit_node(
+        &mut self,
+        node: &RedeemNode<CustomJet<E>>,
+        input: FrameIter,
+        output: NodeOutput,
+    ) {
         match node.inner() {
             Inner::Jet(jet) => self.handle_jet(node, *jet, &input, &output),
             Inner::AssertL(_, cmr) => self.handle_debug(node, &input, cmr),
@@ -331,7 +336,10 @@ impl ExecTracker<CustomJet> for DefaultTracker<'_> {
 }
 
 /// Parses jet input arguments from the bit machine's read frame.
-fn parse_jet_arguments(jet: CustomJet, input_frame: &mut FrameIter) -> Result<Vec<Value>, String> {
+fn parse_jet_arguments<E>(
+    jet: CustomJet<E>,
+    input_frame: &mut FrameIter,
+) -> Result<Vec<Value>, String> {
     let source_types = source_type(jet);
     if source_types.is_empty() {
         return Ok(vec![]);
@@ -426,9 +434,9 @@ mod tests {
     type DebugStore = Rc<RefCell<HashMap<String, String>>>;
     type JetStore = Rc<RefCell<HashMap<String, (Option<Vec<String>>, Option<String>)>>>;
 
-    fn create_test_tracker(
+    fn create_test_tracker<E>(
         debug_symbols: &DebugSymbols,
-    ) -> (DefaultTracker<'_>, DebugStore, JetStore) {
+    ) -> (DefaultTracker<'_, E>, DebugStore, JetStore) {
         let debug_store: DebugStore = Rc::default();
         let jet_store: JetStore = Rc::default();
 

@@ -28,7 +28,7 @@ use crate::value::StructuralValue;
 use crate::witness::Arguments;
 use crate::Value;
 
-type ProgNode<'brand> = Arc<named::ConstructNode<'brand, CustomJet>>;
+type ProgNode<'brand, E> = Arc<named::ConstructNode<'brand, CustomJet<E>>>;
 
 /// Each SimplicityHL expression expects an _input value_.
 /// A SimplicityHL expression is translated into a Simplicity expression
@@ -186,7 +186,7 @@ impl<'brand> Scope<'brand> {
     /// ```
     ///
     /// The expression `drop (IOH & OH)` returns the seeked value.
-    pub fn get(&self, target: &BasePattern) -> Option<PairBuilder<ProgNode<'brand>>> {
+    pub fn get<E>(&self, target: &BasePattern) -> Option<PairBuilder<ProgNode<'brand, E>>> {
         BasePattern::from(&self.get_input_pattern()).translate(&self.ctx, target)
     }
 
@@ -201,12 +201,12 @@ impl<'brand> Scope<'brand> {
     ///
     /// The debug symbol is attached in such a way that a Simplicity runtime without support
     /// for debug symbols will simply ignore it. The semantics of the program remain unchanged.
-    pub fn with_debug_symbol<S: AsRef<Span>>(
+    pub fn with_debug_symbol<S: AsRef<Span>, E>(
         &mut self,
-        args: PairBuilder<ProgNode<'brand>>,
-        body: &ProgNode<'brand>,
+        args: PairBuilder<ProgNode<'brand, E>>,
+        body: &ProgNode<'brand, E>,
         span: &S,
-    ) -> Result<PairBuilder<ProgNode<'brand>>, RichError> {
+    ) -> Result<PairBuilder<ProgNode<'brand, E>>, RichError> {
         match self.call_tracker.get_cmr(span.as_ref()) {
             Some(cmr) if self.include_debug_symbols => {
                 let false_and_args = ProgNode::bit(self.ctx(), false).pair(args);
@@ -224,12 +224,12 @@ impl<'brand> Scope<'brand> {
     }
 }
 
-fn compile_blk<'brand>(
-    stmts: &[Statement],
+fn compile_blk<'brand, E>(
+    stmts: &[Statement<E>],
     scope: &mut Scope<'brand>,
     index: usize,
-    last_expr: Option<&Expression>,
-) -> Result<PairBuilder<ProgNode<'brand>>, RichError> {
+    last_expr: Option<&Expression<E>>,
+) -> Result<PairBuilder<ProgNode<'brand, E>>, RichError> {
     if index >= stmts.len() {
         return match last_expr {
             Some(expr) => expr.compile(scope),
@@ -254,7 +254,7 @@ fn compile_blk<'brand>(
     }
 }
 
-impl Program {
+impl<E> Program<E> {
     /// Compile the SimplicityHL source code to Simplicity target code.
     ///
     /// ## Precondition
@@ -265,7 +265,7 @@ impl Program {
         &self,
         arguments: Arguments,
         include_debug_symbols: bool,
-    ) -> Result<Arc<named::CommitNode<CustomJet>>, RichError> {
+    ) -> Result<Arc<named::CommitNode<CustomJet<E>>>, RichError> {
         types::Context::with_context(|ctx| {
             let mut scope = Scope::new(
                 ctx,
@@ -283,11 +283,11 @@ impl Program {
     }
 }
 
-impl Expression {
+impl<E> Expression<E> {
     fn compile<'brand>(
         &self,
         scope: &mut Scope<'brand>,
-    ) -> Result<PairBuilder<ProgNode<'brand>>, RichError> {
+    ) -> Result<PairBuilder<ProgNode<'brand, E>>, RichError> {
         match self.inner() {
             ExpressionInner::Block(stmts, expr) => {
                 scope.push_scope();
@@ -300,11 +300,11 @@ impl Expression {
     }
 }
 
-impl SingleExpression {
+impl<E> SingleExpression<E> {
     fn compile<'brand>(
         &self,
         scope: &mut Scope<'brand>,
-    ) -> Result<PairBuilder<ProgNode<'brand>>, RichError> {
+    ) -> Result<PairBuilder<ProgNode<'brand, E>>, RichError> {
         let expr = match self.inner() {
             SingleExpressionInner::Constant(value) => {
                 let value = StructuralValue::from(value);
@@ -324,7 +324,7 @@ impl SingleExpression {
                 let compiled = elements
                     .iter()
                     .map(|e| e.compile(scope))
-                    .collect::<Result<Vec<PairBuilder<ProgNode>>, RichError>>()?;
+                    .collect::<Result<Vec<PairBuilder<ProgNode<E>>>, RichError>>()?;
                 let tree = BTreeSlice::from_slice(&compiled);
                 tree.fold(PairBuilder::pair)
                     .unwrap_or_else(|| PairBuilder::unit(scope.ctx()))
@@ -333,7 +333,7 @@ impl SingleExpression {
                 let compiled = elements
                     .iter()
                     .map(|e| e.compile(scope))
-                    .collect::<Result<Vec<PairBuilder<ProgNode>>, RichError>>()?;
+                    .collect::<Result<Vec<PairBuilder<ProgNode<E>>>, RichError>>()?;
                 let bound = self.ty().as_list().unwrap().1;
                 let partition = Partition::from_slice(&compiled, bound);
                 partition.fold(
@@ -371,11 +371,11 @@ impl SingleExpression {
     }
 }
 
-impl Call {
+impl<E> Call<E> {
     fn compile<'brand>(
         &self,
         scope: &mut Scope<'brand>,
-    ) -> Result<PairBuilder<ProgNode<'brand>>, RichError> {
+    ) -> Result<PairBuilder<ProgNode<'brand, E>>, RichError> {
         let args_ast = SingleExpression::tuple(self.args().clone(), *self.as_ref());
         let args = args_ast.compile(scope)?;
 
@@ -468,13 +468,13 @@ impl Call {
 /// The fold `(fold f)_n : E^(<2^n) × A → A`
 /// takes the list of type `E^(<2^n)` and an initial accumulator of type `A`,
 /// and it produces the final accumulator of type `A`.
-fn list_fold<'brand>(
+fn list_fold<'brand, E>(
     bound: NonZeroPow2Usize,
-    f: &ProgNode<'brand>,
-) -> Result<ProgNode<'brand>, simplicity::types::Error> {
-    fn next_f_array<'brand>(
-        f_array: &ProgNode<'brand>,
-    ) -> Result<ProgNode<'brand>, simplicity::types::Error> {
+    f: &ProgNode<'brand, E>,
+) -> Result<ProgNode<'brand, E>, simplicity::types::Error> {
+    fn next_f_array<'brand, E>(
+        f_array: &ProgNode<'brand, E>,
+    ) -> Result<ProgNode<'brand, E>, simplicity::types::Error> {
         /* f_(n + 1) :  E^(2^(n + 1)) × A → A
          * f_(n + 1) := OIH ▵ (OOH ▵ IH; f_n); f_n
          */
@@ -484,10 +484,10 @@ fn list_fold<'brand>(
         let half2_acc = ProgNode::o().i().h(ctx).pair(updated_acc);
         half2_acc.comp(f_array).map(PairBuilder::build)
     }
-    fn next_f_fold<'brand>(
-        f_array: &ProgNode<'brand>,
-        f_fold: &ProgNode<'brand>,
-    ) -> Result<ProgNode<'brand>, simplicity::types::Error> {
+    fn next_f_fold<'brand, E>(
+        f_array: &ProgNode<'brand, E>,
+        f_fold: &ProgNode<'brand, E>,
+    ) -> Result<ProgNode<'brand, E>, simplicity::types::Error> {
         /* (fold f)_(n + 1) :  E<2^(n + 1) × A → A
          * (fold f)_(n + 1) := OOH ▵ (OIH ▵ IH);
          *                     case (drop (fold f)_n)
@@ -545,18 +545,18 @@ fn list_fold<'brand>(
 /// In this case, the loop continues without returning anything.
 /// The loop returns the final iterator after the final iteration
 /// if `f` never returned a successful output.
-fn for_while<'brand>(
+fn for_while<'brand, E>(
     bit_width: Pow2Usize,
-    f: PairBuilder<ProgNode<'brand>>,
-) -> Result<PairBuilder<ProgNode<'brand>>, simplicity::types::Error> {
+    f: PairBuilder<ProgNode<'brand, E>>,
+) -> Result<PairBuilder<ProgNode<'brand, E>>, simplicity::types::Error> {
     /* for_while_0 f :  E × A → A
      * for_while_0 f := (OH ▵ (IH ▵ false); f) ▵ IH;
      *                  case (injl OH)
      *                       (OH ▵ (IH ▵ true); f)
      */
-    fn for_while_0<'brand>(
-        f: &ProgNode<'brand>,
-    ) -> Result<PairBuilder<ProgNode<'brand>>, simplicity::types::Error> {
+    fn for_while_0<'brand, E>(
+        f: &ProgNode<'brand, E>,
+    ) -> Result<PairBuilder<ProgNode<'brand, E>>, simplicity::types::Error> {
         let ctx = f.inference_context();
         let f_output = ProgNode::o()
             .h(ctx)
@@ -579,9 +579,9 @@ fn for_while<'brand>(
      * where
      *       f :  A × (C × 2^(2^(n + 1))) → B + A
      */
-    fn adapt_f<'brand>(
-        f: &ProgNode<'brand>,
-    ) -> Result<PairBuilder<ProgNode<'brand>>, simplicity::types::Error> {
+    fn adapt_f<'brand, E>(
+        f: &ProgNode<'brand, E>,
+    ) -> Result<PairBuilder<ProgNode<'brand, E>>, simplicity::types::Error> {
         let ctx = f.inference_context();
         let f_input = ProgNode::o().h(ctx).pair(
             ProgNode::i()
@@ -649,11 +649,11 @@ fn for_while<'brand>(
     Ok(for_while_f)
 }
 
-impl Match {
+impl<E> Match<E> {
     fn compile<'brand>(
         &self,
         scope: &mut Scope<'brand>,
-    ) -> Result<PairBuilder<ProgNode<'brand>>, RichError> {
+    ) -> Result<PairBuilder<ProgNode<'brand, E>>, RichError> {
         scope.push_scope();
         scope.insert(
             self.left()

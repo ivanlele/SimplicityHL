@@ -2,8 +2,9 @@ use base64::display::Base64Display;
 use base64::engine::general_purpose::STANDARD;
 use clap::{Arg, ArgAction, Command};
 
+use simplicity::{elements::Transaction, jet::elements::ElementsEnv};
 use simplicityhl::{Arguments, CompiledProgram};
-use std::{env, fmt};
+use std::{env, fmt, sync::Arc};
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 /// The compilation output.
@@ -69,7 +70,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let include_debug_symbols = matches.get_flag("debug");
     let output_json = matches.get_flag("json");
 
-    let compiled = CompiledProgram::new(prog_text, Arguments::default(), include_debug_symbols)?;
+    // For Elements jets
+    let compiled = CompiledProgram::<ElementsEnv<Arc<Transaction>>>::new(
+        prog_text,
+        Arguments::default(),
+        include_debug_symbols,
+    )?;
+
+    // For Core jets
+    //let compiled =
+    //    CompiledProgram::<()>::new(prog_text, Arguments::default(), include_debug_symbols)?;
 
     #[cfg(feature = "serde")]
     let witness_opt = matches

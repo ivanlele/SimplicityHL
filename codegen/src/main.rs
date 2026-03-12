@@ -20,7 +20,8 @@ fn write_jet<W: io::Write>(jet: Elements, w: &mut W) -> io::Result<()> {
     writeln!(w, "///")?;
     writeln!(w, "/// {} mWU _(milli weight units)_", jet.cost())?;
     write!(w, "pub fn {jet}(")?;
-    let parameters = simplicityhl::jet::source_type(unsafe { CustomJet::from_base_jet(&jet) });
+    let parameters =
+        simplicityhl::jet::source_type_elements(unsafe { CustomJet::from_base_jet(&jet) });
     for (i, ty) in parameters.iter().enumerate() {
         let identifier = (b'a' + i as u8) as char;
         if i == parameters.len() - 1 {
@@ -29,13 +30,13 @@ fn write_jet<W: io::Write>(jet: Elements, w: &mut W) -> io::Result<()> {
             write!(w, "{identifier}: {ty}, ")?;
         }
     }
-    let target = simplicityhl::jet::target_type(unsafe { CustomJet::from_base_jet(&jet) });
+    let target = simplicityhl::jet::target_type_elements(unsafe { CustomJet::from_base_jet(&jet) });
     match target.is_unit() {
         true => writeln!(w, ") {{")?,
         false => writeln!(
             w,
             ") -> {} {{",
-            simplicityhl::jet::target_type(unsafe { CustomJet::from_base_jet(&jet) })
+            simplicityhl::jet::target_type_elements(unsafe { CustomJet::from_base_jet(&jet) })
         )?,
     }
 

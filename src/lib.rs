@@ -24,7 +24,7 @@ mod witness;
 use std::sync::Arc;
 
 use simplicity_unchained::jets::custom_jet::CustomJet;
-use simplicity_unchained::jets::environments::ElementsUnchainedEnv;
+use simplicity_unchained::jets::environments::UnchainedEnv;
 
 use simplicity::{CommitNode, RedeemNode};
 
@@ -43,12 +43,12 @@ pub use crate::witness::{Arguments, Parameters, WitnessTypes, WitnessValues};
 ///
 /// A template has parameterized values that need to be supplied with arguments.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TemplateProgram {
-    simfony: ast::Program,
+pub struct TemplateProgram<E: 'static> {
+    simfony: ast::Program<E>,
     file: Arc<str>,
 }
 
-impl TemplateProgram {
+impl<E> TemplateProgram<E> {
     /// Parse the template of a SimplicityHL program.
     ///
     /// ## Errors
@@ -79,7 +79,7 @@ impl TemplateProgram {
         &self,
         arguments: Arguments,
         include_debug_symbols: bool,
-    ) -> Result<CompiledProgram, String> {
+    ) -> Result<CompiledProgram<E>, String> {
         arguments
             .is_consistent(self.simfony.parameters())
             .map_err(|error| error.to_string())?;
@@ -98,14 +98,27 @@ impl TemplateProgram {
 }
 
 /// A SimplicityHL program, compiled to Simplicity.
-#[derive(Clone, Debug)]
-pub struct CompiledProgram {
-    simplicity: Arc<named::CommitNode<CustomJet>>,
+#[derive(Debug)]
+pub struct CompiledProgram<E: 'static> {
+    simplicity: Arc<named::CommitNode<CustomJet<E>>>,
     witness_types: WitnessTypes,
     debug_symbols: DebugSymbols,
 }
 
-impl CompiledProgram {
+impl<E> Clone for CompiledProgram<E> {
+    fn clone(&self) -> Self {
+        Self {
+            simplicity: self.simplicity.clone(),
+            witness_types: self.witness_types.clone(),
+            debug_symbols: self.debug_symbols.clone(),
+        }
+    }
+}
+
+impl<E> CompiledProgram<E>
+where
+    E: 'static,
+{
     /// Parse and compile a SimplicityHL program from the given string.
     ///
     /// ## See
@@ -127,7 +140,7 @@ impl CompiledProgram {
     }
 
     /// Access the Simplicity target code, without witness data.
-    pub fn commit(&self) -> Arc<CommitNode<CustomJet>> {
+    pub fn commit(&self) -> Arc<CommitNode<CustomJet<E>>> {
         named::forget_names(&self.simplicity)
     }
 
@@ -137,7 +150,7 @@ impl CompiledProgram {
     ///
     /// - Witness values have a different type than declared in the SimplicityHL program.
     /// - There are missing witness values.
-    pub fn satisfy(&self, witness_values: WitnessValues) -> Result<SatisfiedProgram, String> {
+    pub fn satisfy(&self, witness_values: WitnessValues) -> Result<SatisfiedProgram<E>, String> {
         self.satisfy_with_env(witness_values, None)
     }
 
@@ -151,8 +164,8 @@ impl CompiledProgram {
     pub fn satisfy_with_env(
         &self,
         witness_values: WitnessValues,
-        env: Option<&ElementsUnchainedEnv>,
-    ) -> Result<SatisfiedProgram, String> {
+        env: Option<&UnchainedEnv<E>>,
+    ) -> Result<SatisfiedProgram<E>, String> {
         witness_values
             .is_consistent(&self.witness_types)
             .map_err(|e| e.to_string())?;
@@ -169,13 +182,25 @@ impl CompiledProgram {
 }
 
 /// A SimplicityHL program, compiled to Simplicity and satisfied with witness data.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SatisfiedProgram {
-    simplicity: Arc<RedeemNode<CustomJet>>,
+#[derive(Debug, PartialEq, Eq)]
+pub struct SatisfiedProgram<E: 'static> {
+    simplicity: Arc<RedeemNode<CustomJet<E>>>,
     debug_symbols: DebugSymbols,
 }
 
-impl SatisfiedProgram {
+impl<E> Clone for SatisfiedProgram<E> {
+    fn clone(&self) -> Self {
+        Self {
+            simplicity: self.simplicity.clone(),
+            debug_symbols: self.debug_symbols.clone(),
+        }
+    }
+}
+
+impl<E> SatisfiedProgram<E>
+where
+    E: 'static,
+{
     /// Parse, compile and satisfy a SimplicityHL program from the given string.
     ///
     /// ## See
@@ -194,7 +219,7 @@ impl SatisfiedProgram {
     }
 
     /// Access the Simplicity target code, including witness data.
-    pub fn redeem(&self) -> &Arc<RedeemNode<CustomJet>> {
+    pub fn redeem(&self) -> &Arc<RedeemNode<CustomJet<E>>> {
         &self.simplicity
     }
 
@@ -209,7 +234,40 @@ impl SatisfiedProgram {
 /// method for each selected member.
 #[macro_export]
 macro_rules! impl_eq_hash {
-    ($ty: ident; $($member: ident),*) => {
+    // With generic parameters and bounds
+    ($ty:ident < $($gen:ident : $bound:path),* >; $($member:ident),*) => {
+        impl<$($gen : $bound + PartialEq),*> PartialEq for $ty<$($gen),*> {
+            fn eq(&self, other: &Self) -> bool {
+                true $(&& self.$member() == other.$member())*
+            }
+        }
+
+        impl<$($gen : $bound + Eq),*> Eq for $ty<$($gen),*> {}
+
+        impl<$($gen : $bound + std::hash::Hash),*> std::hash::Hash for $ty<$($gen),*> {
+            fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                $(self.$member().hash(state);)*
+            }
+        }
+    };
+    // With generic parameters without bounds
+    ($ty:ident < $($gen:ident),+ >; $($member:ident),*) => {
+        impl<$($gen : PartialEq),*> PartialEq for $ty<$($gen),*> {
+            fn eq(&self, other: &Self) -> bool {
+                true $(&& self.$member() == other.$member())*
+            }
+        }
+
+        impl<$($gen : Eq),*> Eq for $ty<$($gen),*> {}
+
+        impl<$($gen : std::hash::Hash),*> std::hash::Hash for $ty<$($gen),*> {
+            fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                $(self.$member().hash(state);)*
+            }
+        }
+    };
+    // Without generic parameters
+    ($ty:ident; $($member:ident),*) => {
         impl PartialEq for $ty {
             fn eq(&self, other: &Self) -> bool {
                 true $(&& self.$member() == other.$member())*
@@ -271,6 +329,10 @@ pub trait ArbitraryOfType: Sized {
 pub(crate) mod tests {
     use base64::display::Base64Display;
     use base64::engine::general_purpose::STANDARD;
+    use simplicity::elements::Transaction;
+    use simplicity::jet::elements::ElementsEnv;
+    #[cfg(feature = "serde")]
+    #[cfg(feature = "serde")]
     use simplicity::BitMachine;
     use std::borrow::Cow;
     use std::path::Path;
@@ -284,7 +346,7 @@ pub(crate) mod tests {
         include_fee_output: bool,
     }
 
-    impl TestCase<TemplateProgram> {
+    impl<E> TestCase<TemplateProgram<E>> {
         pub fn template_file<P: AsRef<Path>>(program_file_path: P) -> Self {
             let program_text = std::fs::read_to_string(program_file_path).unwrap();
             Self::template_text(Cow::Owned(program_text))
@@ -307,7 +369,7 @@ pub(crate) mod tests {
         pub fn with_argument_file<P: AsRef<Path>>(
             self,
             arguments_file_path: P,
-        ) -> TestCase<CompiledProgram> {
+        ) -> TestCase<CompiledProgram<E>> {
             let arguments_text = std::fs::read_to_string(arguments_file_path).unwrap();
             let arguments = match serde_json::from_str::<Arguments>(&arguments_text) {
                 Ok(x) => x,
@@ -316,7 +378,7 @@ pub(crate) mod tests {
             self.with_arguments(arguments)
         }
 
-        pub fn with_arguments(self, arguments: Arguments) -> TestCase<CompiledProgram> {
+        pub fn with_arguments(self, arguments: Arguments) -> TestCase<CompiledProgram<E>> {
             let program = match self.program.instantiate(arguments, true) {
                 Ok(x) => x,
                 Err(error) => panic!("{error}"),
@@ -330,14 +392,14 @@ pub(crate) mod tests {
         }
     }
 
-    impl TestCase<CompiledProgram> {
+    impl<E> TestCase<CompiledProgram<E>> {
         pub fn program_file<P: AsRef<Path>>(program_file_path: P) -> Self {
-            TestCase::<TemplateProgram>::template_file(program_file_path)
+            TestCase::<TemplateProgram<E>>::template_file(program_file_path)
                 .with_arguments(Arguments::default())
         }
 
         pub fn program_text(program_text: Cow<str>) -> Self {
-            TestCase::<TemplateProgram>::template_text(program_text)
+            TestCase::<TemplateProgram<E>>::template_text(program_text)
                 .with_arguments(Arguments::default())
         }
 
@@ -345,7 +407,7 @@ pub(crate) mod tests {
         pub fn with_witness_file<P: AsRef<Path>>(
             self,
             witness_file_path: P,
-        ) -> TestCase<SatisfiedProgram> {
+        ) -> TestCase<SatisfiedProgram<E>> {
             let witness_text = std::fs::read_to_string(witness_file_path).unwrap();
             let witness_values = match serde_json::from_str::<WitnessValues>(&witness_text) {
                 Ok(x) => x,
@@ -357,7 +419,7 @@ pub(crate) mod tests {
         pub fn with_witness_values(
             self,
             witness_values: WitnessValues,
-        ) -> TestCase<SatisfiedProgram> {
+        ) -> TestCase<SatisfiedProgram<E>> {
             let program = match self.program.satisfy(witness_values) {
                 Ok(x) => x,
                 Err(error) => panic!("{error}"),
@@ -396,7 +458,7 @@ pub(crate) mod tests {
         }
     }
 
-    impl TestCase<SatisfiedProgram> {
+    impl TestCase<SatisfiedProgram<ElementsEnv<Arc<Transaction>>>> {
         #[allow(dead_code)]
         pub fn print_encoding(self) -> Self {
             let (program_bytes, witness_bytes) = self.program.redeem().to_vec_with_witness();
@@ -614,7 +676,7 @@ fn main() {
     assert!(my_true());
 }
 "#;
-        match SatisfiedProgram::new(
+        match SatisfiedProgram::<ElementsEnv<Arc<Transaction>>>::new(
             prog_text,
             Arguments::default(),
             WitnessValues::default(),

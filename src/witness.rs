@@ -69,7 +69,7 @@ macro_rules! impl_name_value_map {
 
         impl ParseFromStr for $wrapper {
             fn parse_from_str(s: &str) -> Result<Self, RichError> {
-                parse::ModuleProgram::parse_from_str(s).and_then(|x| Self::analyze(&x))
+                parse::ModuleProgram::parse_from_str(s).and_then(|x| Self::analyze::<()>(&x))
             }
         }
 
@@ -207,6 +207,9 @@ impl crate::ArbitraryOfType for Arguments {
 
 #[cfg(test)]
 mod tests {
+    use simplicity::elements::Transaction;
+    use simplicity::jet::elements::ElementsEnv;
+
     use super::*;
     use crate::parse::ParseFromStr;
     use crate::value::ValueConstructible;
@@ -218,7 +221,8 @@ mod tests {
     assert!(jet::eq_32(witness::A, witness::A));
 }"#;
         let program = parse::Program::parse_from_str(s).expect("parsing works");
-        match ast::Program::analyze(&program).map_err(Error::from) {
+        match ast::Program::<ElementsEnv<Arc<Transaction>>>::analyze(&program).map_err(Error::from)
+        {
             Ok(_) => panic!("Witness reuse was falsely accepted"),
             Err(Error::WitnessReused(..)) => {}
             Err(error) => panic!("Unexpected error: {error}"),
@@ -235,7 +239,12 @@ mod tests {
             WitnessName::from_str_unchecked("A"),
             Value::u16(42),
         )]));
-        match SatisfiedProgram::new(s, Arguments::default(), witness, false) {
+        match SatisfiedProgram::<ElementsEnv<Arc<Transaction>>>::new(
+            s,
+            Arguments::default(),
+            witness,
+            false,
+        ) {
             Ok(_) => panic!("Ill-typed witness assignment was falsely accepted"),
             Err(error) => assert_eq!(
                 "Witness `A` was declared with type `u32` but its assigned value is of type `u16`",
@@ -254,7 +263,8 @@ fn main() {
     assert!(jet::is_zero_32(f()));
 }"#;
 
-        match CompiledProgram::new(s, Arguments::default(), false) {
+        match CompiledProgram::<ElementsEnv<Arc<Transaction>>>::new(s, Arguments::default(), false)
+        {
             Ok(_) => panic!("Witness outside main was falsely accepted"),
             Err(error) => {
                 assert!(error

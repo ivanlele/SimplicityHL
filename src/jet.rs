@@ -1,10 +1,14 @@
 use std::str::FromStr;
+use std::sync::Arc;
 
 use crate::num::NonZeroPow2Usize;
 use crate::types::BuiltinAlias::*;
 use crate::types::UIntType::*;
 use crate::types::*;
 
+use simplicity::elements::Transaction;
+use simplicity::jet::elements::ElementsEnv;
+use simplicity::jet::Core;
 use simplicity_unchained::jets::custom_jet::CustomJet;
 
 use simplicity::jet::Elements;
@@ -33,7 +37,33 @@ fn option<A: Into<AliasedType>>(inner: A) -> AliasedType {
     AliasedType::option(inner.into())
 }
 
-pub fn source_type(jet: CustomJet) -> Vec<AliasedType> {
+pub fn source_type<E>(jet: CustomJet<E>) -> Vec<AliasedType> {
+    let env_type = std::any::TypeId::of::<E>();
+    if env_type == std::any::TypeId::of::<ElementsEnv<Arc<Transaction>>>() {
+        let jet_casted = unsafe { std::mem::transmute(jet) };
+        source_type_elements(jet_casted)
+    } else if env_type == std::any::TypeId::of::<()>() {
+        let jet_casted = unsafe { std::mem::transmute(jet) };
+        source_type_core(jet_casted)
+    } else {
+        panic!("Unsupported type of jet")
+    }
+}
+
+pub fn target_type<E>(jet: CustomJet<E>) -> AliasedType {
+    let env_type = std::any::TypeId::of::<E>();
+    if env_type == std::any::TypeId::of::<ElementsEnv<Arc<Transaction>>>() {
+        let jet_casted = unsafe { std::mem::transmute(jet) };
+        target_type_elements(jet_casted)
+    } else if env_type == std::any::TypeId::of::<()>() {
+        let jet_casted = unsafe { std::mem::transmute(jet) };
+        target_type_core(jet_casted)
+    } else {
+        panic!("Unsupported type of jet")
+    }
+}
+
+fn source_type_elements(jet: CustomJet<ElementsEnv<Arc<Transaction>>>) -> Vec<AliasedType> {
     let try_base_jet: Option<Elements> = unsafe { jet.to_base_jet() };
     match try_base_jet {
         /*
@@ -608,7 +638,7 @@ pub fn source_type(jet: CustomJet) -> Vec<AliasedType> {
     }
 }
 
-pub fn target_type(jet: CustomJet) -> AliasedType {
+fn target_type_elements(jet: CustomJet<ElementsEnv<Arc<Transaction>>>) -> AliasedType {
     let try_base_jet: Option<Elements> = unsafe { jet.to_base_jet() };
 
     match try_base_jet {
@@ -1135,6 +1165,834 @@ pub fn target_type(jet: CustomJet) -> AliasedType {
     }
 }
 
+fn source_type_core(jet: CustomJet<()>) -> Vec<AliasedType> {
+    let try_base_jet: Option<Core> = unsafe { jet.to_base_jet() };
+
+    match try_base_jet {
+        /*
+         * ==============================
+         *          Core jets
+         * ==============================
+         *
+         * Multi-bit logic
+         */
+        Some(Core::Low1) | Some(Core::Low8) | Some(Core::Low16) | Some(Core::Low32)
+        | Some(Core::Low64) | Some(Core::High1) | Some(Core::High8) | Some(Core::High16)
+        | Some(Core::High32) | Some(Core::High64) => vec![],
+        Some(Core::Verify) => vec![bool()],
+        Some(Core::Complement1)
+        | Some(Core::Some1)
+        | Some(Core::LeftPadLow1_8)
+        | Some(Core::LeftPadLow1_16)
+        | Some(Core::LeftPadLow1_32)
+        | Some(Core::LeftPadLow1_64)
+        | Some(Core::LeftPadHigh1_8)
+        | Some(Core::LeftPadHigh1_16)
+        | Some(Core::LeftPadHigh1_32)
+        | Some(Core::LeftPadHigh1_64)
+        | Some(Core::LeftExtend1_8)
+        | Some(Core::LeftExtend1_16)
+        | Some(Core::LeftExtend1_32)
+        | Some(Core::LeftExtend1_64)
+        | Some(Core::RightPadLow1_8)
+        | Some(Core::RightPadLow1_16)
+        | Some(Core::RightPadLow1_32)
+        | Some(Core::RightPadLow1_64)
+        | Some(Core::RightPadHigh1_8)
+        | Some(Core::RightPadHigh1_16)
+        | Some(Core::RightPadHigh1_32)
+        | Some(Core::RightPadHigh1_64) => vec![U1.into()],
+        Some(Core::Complement8)
+        | Some(Core::Some8)
+        | Some(Core::All8)
+        | Some(Core::Leftmost8_1)
+        | Some(Core::Leftmost8_2)
+        | Some(Core::Leftmost8_4)
+        | Some(Core::Rightmost8_1)
+        | Some(Core::Rightmost8_2)
+        | Some(Core::Rightmost8_4)
+        | Some(Core::LeftPadLow8_16)
+        | Some(Core::LeftPadLow8_32)
+        | Some(Core::LeftPadLow8_64)
+        | Some(Core::LeftPadHigh8_16)
+        | Some(Core::LeftPadHigh8_32)
+        | Some(Core::LeftPadHigh8_64)
+        | Some(Core::LeftExtend8_16)
+        | Some(Core::LeftExtend8_32)
+        | Some(Core::LeftExtend8_64)
+        | Some(Core::RightPadLow8_16)
+        | Some(Core::RightPadLow8_32)
+        | Some(Core::RightPadLow8_64)
+        | Some(Core::RightPadHigh8_16)
+        | Some(Core::RightPadHigh8_32)
+        | Some(Core::RightPadHigh8_64)
+        | Some(Core::RightExtend8_16)
+        | Some(Core::RightExtend8_32)
+        | Some(Core::RightExtend8_64) => vec![U8.into()],
+        Some(Core::Complement16)
+        | Some(Core::Some16)
+        | Some(Core::All16)
+        | Some(Core::Leftmost16_1)
+        | Some(Core::Leftmost16_2)
+        | Some(Core::Leftmost16_4)
+        | Some(Core::Leftmost16_8)
+        | Some(Core::Rightmost16_1)
+        | Some(Core::Rightmost16_2)
+        | Some(Core::Rightmost16_4)
+        | Some(Core::Rightmost16_8)
+        | Some(Core::LeftPadLow16_32)
+        | Some(Core::LeftPadLow16_64)
+        | Some(Core::LeftPadHigh16_32)
+        | Some(Core::LeftPadHigh16_64)
+        | Some(Core::LeftExtend16_32)
+        | Some(Core::LeftExtend16_64)
+        | Some(Core::RightPadLow16_32)
+        | Some(Core::RightPadLow16_64)
+        | Some(Core::RightPadHigh16_32)
+        | Some(Core::RightPadHigh16_64)
+        | Some(Core::RightExtend16_32)
+        | Some(Core::RightExtend16_64) => vec![U16.into()],
+        Some(Core::Complement32)
+        | Some(Core::Some32)
+        | Some(Core::All32)
+        | Some(Core::Leftmost32_1)
+        | Some(Core::Leftmost32_2)
+        | Some(Core::Leftmost32_4)
+        | Some(Core::Leftmost32_8)
+        | Some(Core::Leftmost32_16)
+        | Some(Core::Rightmost32_1)
+        | Some(Core::Rightmost32_2)
+        | Some(Core::Rightmost32_4)
+        | Some(Core::Rightmost32_8)
+        | Some(Core::Rightmost32_16)
+        | Some(Core::LeftPadLow32_64)
+        | Some(Core::LeftPadHigh32_64)
+        | Some(Core::LeftExtend32_64)
+        | Some(Core::RightPadLow32_64)
+        | Some(Core::RightPadHigh32_64)
+        | Some(Core::RightExtend32_64) => vec![U32.into()],
+        Some(Core::Complement64)
+        | Some(Core::Some64)
+        | Some(Core::All64)
+        | Some(Core::Leftmost64_1)
+        | Some(Core::Leftmost64_2)
+        | Some(Core::Leftmost64_4)
+        | Some(Core::Leftmost64_8)
+        | Some(Core::Leftmost64_16)
+        | Some(Core::Leftmost64_32)
+        | Some(Core::Rightmost64_1)
+        | Some(Core::Rightmost64_2)
+        | Some(Core::Rightmost64_4)
+        | Some(Core::Rightmost64_8)
+        | Some(Core::Rightmost64_16)
+        | Some(Core::Rightmost64_32) => vec![U64.into()],
+        Some(Core::And1) | Some(Core::Or1) | Some(Core::Xor1) | Some(Core::Eq1) => {
+            vec![U1.into(), U1.into()]
+        }
+        Some(Core::And8) | Some(Core::Or8) | Some(Core::Xor8) | Some(Core::Eq8) => {
+            vec![U8.into(), U8.into()]
+        }
+        Some(Core::And16) | Some(Core::Or16) | Some(Core::Xor16) | Some(Core::Eq16) => {
+            vec![U16.into(), U16.into()]
+        }
+        Some(Core::And32) | Some(Core::Or32) | Some(Core::Xor32) | Some(Core::Eq32) => {
+            vec![U32.into(), U32.into()]
+        }
+        Some(Core::And64) | Some(Core::Or64) | Some(Core::Xor64) | Some(Core::Eq64) => {
+            vec![U64.into(), U64.into()]
+        }
+        Some(Core::Eq256) => vec![U256.into(), U256.into()],
+        Some(Core::Maj1) | Some(Core::XorXor1) | Some(Core::Ch1) => {
+            vec![U1.into(), U1.into(), U1.into()]
+        }
+        Some(Core::Maj8) | Some(Core::XorXor8) | Some(Core::Ch8) => {
+            vec![U8.into(), U8.into(), U8.into()]
+        }
+        Some(Core::Maj16) | Some(Core::XorXor16) | Some(Core::Ch16) => {
+            vec![U16.into(), tuple([U16, U16])]
+        }
+        Some(Core::Maj32) | Some(Core::XorXor32) | Some(Core::Ch32) => {
+            vec![U32.into(), tuple([U32, U32])]
+        }
+        Some(Core::Maj64) | Some(Core::XorXor64) | Some(Core::Ch64) => {
+            vec![U64.into(), tuple([U64, U64])]
+        }
+        Some(Core::FullLeftShift8_1) => vec![U8.into(), U1.into()],
+        Some(Core::FullLeftShift8_2) => vec![U8.into(), U2.into()],
+        Some(Core::FullLeftShift8_4) => vec![U8.into(), U4.into()],
+        Some(Core::FullLeftShift16_1) => vec![U16.into(), U1.into()],
+        Some(Core::FullLeftShift16_2) => vec![U16.into(), U2.into()],
+        Some(Core::FullLeftShift16_4) => vec![U16.into(), U4.into()],
+        Some(Core::FullLeftShift16_8) => vec![U16.into(), U8.into()],
+        Some(Core::FullLeftShift32_1) => vec![U32.into(), U1.into()],
+        Some(Core::FullLeftShift32_2) => vec![U32.into(), U2.into()],
+        Some(Core::FullLeftShift32_4) => vec![U32.into(), U4.into()],
+        Some(Core::FullLeftShift32_8) => vec![U32.into(), U8.into()],
+        Some(Core::FullLeftShift32_16) => vec![U32.into(), U16.into()],
+        Some(Core::FullLeftShift64_1) => vec![U64.into(), U1.into()],
+        Some(Core::FullLeftShift64_2) => vec![U64.into(), U2.into()],
+        Some(Core::FullLeftShift64_4) => vec![U64.into(), U4.into()],
+        Some(Core::FullLeftShift64_8) => vec![U64.into(), U8.into()],
+        Some(Core::FullLeftShift64_16) => vec![U64.into(), U16.into()],
+        Some(Core::FullLeftShift64_32) => vec![U64.into(), U32.into()],
+        Some(Core::FullRightShift8_1) => vec![U1.into(), U8.into()],
+        Some(Core::FullRightShift8_2) => vec![U2.into(), U8.into()],
+        Some(Core::FullRightShift8_4) => vec![U4.into(), U8.into()],
+        Some(Core::FullRightShift16_1) => vec![U1.into(), U16.into()],
+        Some(Core::FullRightShift16_2) => vec![U2.into(), U16.into()],
+        Some(Core::FullRightShift16_4) => vec![U4.into(), U16.into()],
+        Some(Core::FullRightShift16_8) => vec![U8.into(), U16.into()],
+        Some(Core::FullRightShift32_1) => vec![U1.into(), U32.into()],
+        Some(Core::FullRightShift32_2) => vec![U2.into(), U32.into()],
+        Some(Core::FullRightShift32_4) => vec![U4.into(), U32.into()],
+        Some(Core::FullRightShift32_8) => vec![U8.into(), U32.into()],
+        Some(Core::FullRightShift32_16) => vec![U16.into(), U32.into()],
+        Some(Core::FullRightShift64_1) => vec![U1.into(), U64.into()],
+        Some(Core::FullRightShift64_2) => vec![U2.into(), U64.into()],
+        Some(Core::FullRightShift64_4) => vec![U4.into(), U64.into()],
+        Some(Core::FullRightShift64_8) => vec![U8.into(), U64.into()],
+        Some(Core::FullRightShift64_16) => vec![U16.into(), U64.into()],
+        Some(Core::FullRightShift64_32) => vec![U32.into(), U64.into()],
+        Some(Core::LeftShiftWith8) | Some(Core::RightShiftWith8) => {
+            vec![U1.into(), U4.into(), U8.into()]
+        }
+        Some(Core::LeftShiftWith16) | Some(Core::RightShiftWith16) => {
+            vec![U1.into(), U4.into(), U16.into()]
+        }
+        Some(Core::LeftShiftWith32) | Some(Core::RightShiftWith32) => {
+            vec![U1.into(), U8.into(), U32.into()]
+        }
+        Some(Core::LeftShiftWith64) | Some(Core::RightShiftWith64) => {
+            vec![U1.into(), U8.into(), U64.into()]
+        }
+        Some(Core::LeftShift8)
+        | Some(Core::RightShift8)
+        | Some(Core::LeftRotate8)
+        | Some(Core::RightRotate8) => vec![U4.into(), U8.into()],
+        Some(Core::LeftShift16)
+        | Some(Core::RightShift16)
+        | Some(Core::LeftRotate16)
+        | Some(Core::RightRotate16) => vec![U4.into(), U16.into()],
+        Some(Core::LeftShift32)
+        | Some(Core::RightShift32)
+        | Some(Core::LeftRotate32)
+        | Some(Core::RightRotate32) => vec![U8.into(), U32.into()],
+        Some(Core::LeftShift64)
+        | Some(Core::RightShift64)
+        | Some(Core::LeftRotate64)
+        | Some(Core::RightRotate64) => vec![U8.into(), U64.into()],
+        /*
+         * Arithmetic
+         */
+        Some(Core::One8) | Some(Core::One16) | Some(Core::One32) | Some(Core::One64) => vec![],
+        Some(Core::Increment8)
+        | Some(Core::Negate8)
+        | Some(Core::Decrement8)
+        | Some(Core::IsZero8)
+        | Some(Core::IsOne8) => vec![U8.into()],
+        Some(Core::Increment16)
+        | Some(Core::Negate16)
+        | Some(Core::Decrement16)
+        | Some(Core::IsZero16)
+        | Some(Core::IsOne16) => vec![U16.into()],
+        Some(Core::Increment32)
+        | Some(Core::Negate32)
+        | Some(Core::Decrement32)
+        | Some(Core::IsZero32)
+        | Some(Core::IsOne32) => vec![U32.into()],
+        Some(Core::Increment64)
+        | Some(Core::Negate64)
+        | Some(Core::Decrement64)
+        | Some(Core::IsZero64)
+        | Some(Core::IsOne64) => vec![U64.into()],
+        Some(Core::Add8)
+        | Some(Core::Subtract8)
+        | Some(Core::Multiply8)
+        | Some(Core::Le8)
+        | Some(Core::Lt8)
+        | Some(Core::Min8)
+        | Some(Core::Max8)
+        | Some(Core::DivMod8)
+        | Some(Core::Divide8)
+        | Some(Core::Modulo8)
+        | Some(Core::Divides8) => vec![U8.into(), U8.into()],
+        Some(Core::Add16)
+        | Some(Core::Subtract16)
+        | Some(Core::Multiply16)
+        | Some(Core::Le16)
+        | Some(Core::Lt16)
+        | Some(Core::Min16)
+        | Some(Core::Max16)
+        | Some(Core::DivMod16)
+        | Some(Core::Divide16)
+        | Some(Core::Modulo16)
+        | Some(Core::Divides16) => vec![U16.into(), U16.into()],
+        Some(Core::Add32)
+        | Some(Core::Subtract32)
+        | Some(Core::Multiply32)
+        | Some(Core::Le32)
+        | Some(Core::Lt32)
+        | Some(Core::Min32)
+        | Some(Core::Max32)
+        | Some(Core::DivMod32)
+        | Some(Core::Divide32)
+        | Some(Core::Modulo32)
+        | Some(Core::Divides32) => vec![U32.into(), U32.into()],
+        Some(Core::Add64)
+        | Some(Core::Subtract64)
+        | Some(Core::Multiply64)
+        | Some(Core::Le64)
+        | Some(Core::Lt64)
+        | Some(Core::Min64)
+        | Some(Core::Max64)
+        | Some(Core::DivMod64)
+        | Some(Core::Divide64)
+        | Some(Core::Modulo64)
+        | Some(Core::Divides64) => vec![U64.into(), U64.into()],
+        Some(Core::DivMod128_64) => vec![U128.into(), U64.into()],
+        Some(Core::FullAdd8) | Some(Core::FullSubtract8) => {
+            vec![bool(), U8.into(), U8.into()]
+        }
+        Some(Core::FullAdd16) | Some(Core::FullSubtract16) => {
+            vec![bool(), U16.into(), U16.into()]
+        }
+        Some(Core::FullAdd32) | Some(Core::FullSubtract32) => {
+            vec![bool(), U32.into(), U32.into()]
+        }
+        Some(Core::FullAdd64) | Some(Core::FullSubtract64) => {
+            vec![bool(), U64.into(), U64.into()]
+        }
+        Some(Core::FullIncrement8) | Some(Core::FullDecrement8) => {
+            vec![bool(), U8.into()]
+        }
+        Some(Core::FullIncrement16) | Some(Core::FullDecrement16) => {
+            vec![bool(), U16.into()]
+        }
+        Some(Core::FullIncrement32) | Some(Core::FullDecrement32) => {
+            vec![bool(), U32.into()]
+        }
+        Some(Core::FullIncrement64) | Some(Core::FullDecrement64) => {
+            vec![bool(), U64.into()]
+        }
+        Some(Core::FullMultiply8) => {
+            vec![tuple([U8, U8]), tuple([U8, U8])]
+        }
+        Some(Core::FullMultiply16) => {
+            vec![tuple([U16, U16]), tuple([U16, U16])]
+        }
+        Some(Core::FullMultiply32) => {
+            vec![tuple([U32, U32]), tuple([U32, U32])]
+        }
+        Some(Core::FullMultiply64) => {
+            vec![tuple([U64, U64]), tuple([U64, U64])]
+        }
+        Some(Core::Median8) => vec![U8.into(), U8.into(), U8.into()],
+        Some(Core::Median16) => vec![U16.into(), U16.into(), U16.into()],
+        Some(Core::Median32) => vec![U32.into(), U32.into(), U32.into()],
+        Some(Core::Median64) => vec![U64.into(), U64.into(), U64.into()],
+        /*
+         * Hash functions
+         */
+        Some(Core::Sha256Iv) | Some(Core::Sha256Ctx8Init) => vec![],
+        Some(Core::Sha256Block) => {
+            vec![U256.into(), U256.into(), U256.into()]
+        }
+        Some(Core::Sha256Ctx8Add1) => vec![Ctx8.into(), U8.into()],
+        Some(Core::Sha256Ctx8Add2) => vec![Ctx8.into(), U16.into()],
+        Some(Core::Sha256Ctx8Add4) => vec![Ctx8.into(), U32.into()],
+        Some(Core::Sha256Ctx8Add8) => vec![Ctx8.into(), U64.into()],
+        Some(Core::Sha256Ctx8Add16) => vec![Ctx8.into(), U128.into()],
+        Some(Core::Sha256Ctx8Add32) => vec![Ctx8.into(), U256.into()],
+        Some(Core::Sha256Ctx8Add64) => vec![Ctx8.into(), array(U8, 64)],
+        Some(Core::Sha256Ctx8Add128) => {
+            vec![Ctx8.into(), array(U8, 128)]
+        }
+        Some(Core::Sha256Ctx8Add256) => {
+            vec![Ctx8.into(), array(U8, 256)]
+        }
+        Some(Core::Sha256Ctx8Add512) => {
+            vec![Ctx8.into(), array(U8, 512)]
+        }
+        Some(Core::Sha256Ctx8AddBuffer511) => {
+            vec![Ctx8.into(), list(U8, 512)]
+        }
+        Some(Core::Sha256Ctx8Finalize) => vec![Ctx8.into()],
+        /*
+         * Elliptic curve functions
+         */
+        // XXX: Nonstandard tuple
+        Some(Core::PointVerify1) => {
+            vec![tuple([tuple([Scalar, Point]), Scalar.into()]), Point.into()]
+        }
+        Some(Core::Decompress) => vec![Point.into()],
+        // XXX: Nonstandard tuple
+        Some(Core::LinearVerify1) => {
+            vec![tuple([tuple([Scalar, Ge]), Scalar.into()]), Ge.into()]
+        }
+        // XXX: Nonstandard tuple
+        Some(Core::LinearCombination1) => {
+            vec![tuple([Scalar, Gej]), Scalar.into()]
+        }
+        Some(Core::Scale) => vec![Scalar.into(), Gej.into()],
+        Some(Core::Generate) => vec![Scalar.into()],
+        Some(Core::GejInfinity) => vec![],
+        Some(Core::GejNormalize)
+        | Some(Core::GejNegate)
+        | Some(Core::GejDouble)
+        | Some(Core::GejIsInfinity)
+        | Some(Core::GejYIsOdd)
+        | Some(Core::GejIsOnCurve) => vec![Gej.into()],
+        Some(Core::GeNegate) | Some(Core::GeIsOnCurve) => {
+            vec![Ge.into()]
+        }
+        Some(Core::GejAdd) | Some(Core::GejEquiv) => {
+            vec![Gej.into(), Gej.into()]
+        }
+        Some(Core::GejGeAddEx) | Some(Core::GejGeAdd) | Some(Core::GejGeEquiv) => {
+            vec![Gej.into(), Ge.into()]
+        }
+        Some(Core::GejRescale) => vec![Gej.into(), Fe.into()],
+        Some(Core::GejXEquiv) => vec![Fe.into(), Gej.into()],
+        Some(Core::ScalarAdd) | Some(Core::ScalarMultiply) => {
+            vec![Scalar.into(), Scalar.into()]
+        }
+        Some(Core::ScalarNormalize)
+        | Some(Core::ScalarNegate)
+        | Some(Core::ScalarSquare)
+        | Some(Core::ScalarInvert)
+        | Some(Core::ScalarMultiplyLambda)
+        | Some(Core::ScalarIsZero) => vec![Scalar.into()],
+        Some(Core::FeNormalize)
+        | Some(Core::FeNegate)
+        | Some(Core::FeSquare)
+        | Some(Core::FeMultiplyBeta)
+        | Some(Core::FeInvert)
+        | Some(Core::FeSquareRoot)
+        | Some(Core::FeIsZero)
+        | Some(Core::FeIsOdd)
+        | Some(Core::Swu) => vec![Fe.into()],
+        Some(Core::FeAdd) | Some(Core::FeMultiply) => {
+            vec![Fe.into(), Fe.into()]
+        }
+        Some(Core::HashToCurve) => vec![U256.into()],
+        /*
+         * Digital signatures
+         */
+        // XXX: Nonstandard tuple
+        Some(Core::CheckSigVerify) => {
+            vec![tuple([Pubkey, Message64]), Signature.into()]
+        }
+        // XXX: Nonstandard tuple
+        Some(Core::Bip0340Verify) => {
+            vec![tuple([Pubkey, Message]), Signature.into()]
+        }
+        /*
+         * Bitcoin (without primitives)
+         */
+        Some(Core::TapdataInit) => vec![],
+        Some(Core::ParseLock) | Some(Core::ParseSequence) => {
+            vec![U32.into()]
+        }
+        /*
+         * Script operations
+         */
+        None => vec![U8.into()],
+    }
+}
+
+fn target_type_core(jet: CustomJet<()>) -> AliasedType {
+    let try_base_jet: Option<Core> = unsafe { jet.to_base_jet() };
+
+    match try_base_jet {
+        /*
+         * ==============================
+         *          Core jets
+         * ==============================
+         *
+         * Multi-bit logic
+         */
+        Some(Core::Verify) => AliasedType::unit(),
+        Some(Core::Some1) | Some(Core::Some8) | Some(Core::Some16) | Some(Core::Some32)
+        | Some(Core::Some64) | Some(Core::All8) | Some(Core::All16) | Some(Core::All32)
+        | Some(Core::All64) | Some(Core::Eq1) | Some(Core::Eq8) | Some(Core::Eq16)
+        | Some(Core::Eq32) | Some(Core::Eq64) | Some(Core::Eq256) => bool(),
+        Some(Core::Low1)
+        | Some(Core::High1)
+        | Some(Core::Complement1)
+        | Some(Core::And1)
+        | Some(Core::Or1)
+        | Some(Core::Xor1)
+        | Some(Core::Maj1)
+        | Some(Core::XorXor1)
+        | Some(Core::Ch1)
+        | Some(Core::Leftmost8_1)
+        | Some(Core::Rightmost8_1)
+        | Some(Core::Leftmost16_1)
+        | Some(Core::Rightmost16_1)
+        | Some(Core::Leftmost32_1)
+        | Some(Core::Rightmost32_1)
+        | Some(Core::Leftmost64_1)
+        | Some(Core::Rightmost64_1) => U1.into(),
+        Some(Core::Leftmost8_2)
+        | Some(Core::Rightmost8_2)
+        | Some(Core::Leftmost16_2)
+        | Some(Core::Rightmost16_2)
+        | Some(Core::Leftmost32_2)
+        | Some(Core::Rightmost32_2)
+        | Some(Core::Leftmost64_2)
+        | Some(Core::Rightmost64_2) => U2.into(),
+        Some(Core::Leftmost8_4)
+        | Some(Core::Rightmost8_4)
+        | Some(Core::Leftmost16_4)
+        | Some(Core::Rightmost16_4)
+        | Some(Core::Leftmost32_4)
+        | Some(Core::Rightmost32_4)
+        | Some(Core::Leftmost64_4)
+        | Some(Core::Rightmost64_4) => U4.into(),
+        Some(Core::Low8)
+        | Some(Core::High8)
+        | Some(Core::Complement8)
+        | Some(Core::And8)
+        | Some(Core::Or8)
+        | Some(Core::Xor8)
+        | Some(Core::Maj8)
+        | Some(Core::XorXor8)
+        | Some(Core::Ch8)
+        | Some(Core::Leftmost16_8)
+        | Some(Core::Rightmost16_8)
+        | Some(Core::Leftmost32_8)
+        | Some(Core::Rightmost32_8)
+        | Some(Core::Leftmost64_8)
+        | Some(Core::Rightmost64_8)
+        | Some(Core::LeftPadLow1_8)
+        | Some(Core::LeftPadHigh1_8)
+        | Some(Core::LeftExtend1_8)
+        | Some(Core::RightPadLow1_8)
+        | Some(Core::RightPadHigh1_8)
+        | Some(Core::LeftShiftWith8)
+        | Some(Core::RightShiftWith8)
+        | Some(Core::LeftShift8)
+        | Some(Core::RightShift8)
+        | Some(Core::LeftRotate8)
+        | Some(Core::RightRotate8) => U8.into(),
+        Some(Core::Low16)
+        | Some(Core::High16)
+        | Some(Core::Complement16)
+        | Some(Core::And16)
+        | Some(Core::Or16)
+        | Some(Core::Xor16)
+        | Some(Core::Maj16)
+        | Some(Core::XorXor16)
+        | Some(Core::Ch16)
+        | Some(Core::Leftmost32_16)
+        | Some(Core::Rightmost32_16)
+        | Some(Core::Leftmost64_16)
+        | Some(Core::Rightmost64_16)
+        | Some(Core::LeftPadLow1_16)
+        | Some(Core::LeftPadHigh1_16)
+        | Some(Core::LeftExtend1_16)
+        | Some(Core::RightPadLow1_16)
+        | Some(Core::RightPadHigh1_16)
+        | Some(Core::LeftPadLow8_16)
+        | Some(Core::LeftPadHigh8_16)
+        | Some(Core::LeftExtend8_16)
+        | Some(Core::RightPadLow8_16)
+        | Some(Core::RightPadHigh8_16)
+        | Some(Core::RightExtend8_16)
+        | Some(Core::LeftShiftWith16)
+        | Some(Core::RightShiftWith16)
+        | Some(Core::LeftShift16)
+        | Some(Core::RightShift16)
+        | Some(Core::LeftRotate16)
+        | Some(Core::RightRotate16) => U16.into(),
+        Some(Core::Low32)
+        | Some(Core::High32)
+        | Some(Core::Complement32)
+        | Some(Core::And32)
+        | Some(Core::Or32)
+        | Some(Core::Xor32)
+        | Some(Core::Maj32)
+        | Some(Core::XorXor32)
+        | Some(Core::Ch32)
+        | Some(Core::Leftmost64_32)
+        | Some(Core::Rightmost64_32)
+        | Some(Core::LeftPadLow1_32)
+        | Some(Core::LeftPadHigh1_32)
+        | Some(Core::LeftExtend1_32)
+        | Some(Core::RightPadLow1_32)
+        | Some(Core::RightPadHigh1_32)
+        | Some(Core::LeftPadLow8_32)
+        | Some(Core::LeftPadHigh8_32)
+        | Some(Core::LeftExtend8_32)
+        | Some(Core::RightPadLow8_32)
+        | Some(Core::RightPadHigh8_32)
+        | Some(Core::RightExtend8_32)
+        | Some(Core::LeftPadLow16_32)
+        | Some(Core::LeftPadHigh16_32)
+        | Some(Core::LeftExtend16_32)
+        | Some(Core::RightPadLow16_32)
+        | Some(Core::RightPadHigh16_32)
+        | Some(Core::RightExtend16_32)
+        | Some(Core::LeftShiftWith32)
+        | Some(Core::RightShiftWith32)
+        | Some(Core::LeftShift32)
+        | Some(Core::RightShift32)
+        | Some(Core::LeftRotate32)
+        | Some(Core::RightRotate32) => U32.into(),
+        Some(Core::Low64)
+        | Some(Core::High64)
+        | Some(Core::Complement64)
+        | Some(Core::And64)
+        | Some(Core::Or64)
+        | Some(Core::Xor64)
+        | Some(Core::Maj64)
+        | Some(Core::XorXor64)
+        | Some(Core::Ch64)
+        | Some(Core::LeftPadLow1_64)
+        | Some(Core::LeftPadHigh1_64)
+        | Some(Core::LeftExtend1_64)
+        | Some(Core::RightPadLow1_64)
+        | Some(Core::RightPadHigh1_64)
+        | Some(Core::LeftPadLow8_64)
+        | Some(Core::LeftPadHigh8_64)
+        | Some(Core::LeftExtend8_64)
+        | Some(Core::RightPadLow8_64)
+        | Some(Core::RightPadHigh8_64)
+        | Some(Core::RightExtend8_64)
+        | Some(Core::LeftPadLow16_64)
+        | Some(Core::LeftPadHigh16_64)
+        | Some(Core::LeftExtend16_64)
+        | Some(Core::RightPadLow16_64)
+        | Some(Core::RightPadHigh16_64)
+        | Some(Core::RightExtend16_64)
+        | Some(Core::LeftPadLow32_64)
+        | Some(Core::LeftPadHigh32_64)
+        | Some(Core::LeftExtend32_64)
+        | Some(Core::RightPadLow32_64)
+        | Some(Core::RightPadHigh32_64)
+        | Some(Core::RightExtend32_64)
+        | Some(Core::LeftShiftWith64)
+        | Some(Core::RightShiftWith64)
+        | Some(Core::LeftShift64)
+        | Some(Core::RightShift64)
+        | Some(Core::LeftRotate64)
+        | Some(Core::RightRotate64) => U64.into(),
+        Some(Core::FullLeftShift8_1) => tuple([U1, U8]),
+        Some(Core::FullLeftShift8_2) => tuple([U2, U8]),
+        Some(Core::FullLeftShift8_4) => tuple([U4, U8]),
+        Some(Core::FullLeftShift16_1) => tuple([U1, U16]),
+        Some(Core::FullLeftShift16_2) => tuple([U2, U16]),
+        Some(Core::FullLeftShift16_4) => tuple([U4, U16]),
+        Some(Core::FullLeftShift16_8) => tuple([U8, U16]),
+        Some(Core::FullLeftShift32_1) => tuple([U1, U32]),
+        Some(Core::FullLeftShift32_2) => tuple([U2, U32]),
+        Some(Core::FullLeftShift32_4) => tuple([U4, U32]),
+        Some(Core::FullLeftShift32_8) => tuple([U8, U32]),
+        Some(Core::FullLeftShift32_16) => tuple([U16, U32]),
+        Some(Core::FullLeftShift64_1) => tuple([U1, U64]),
+        Some(Core::FullLeftShift64_2) => tuple([U2, U64]),
+        Some(Core::FullLeftShift64_4) => tuple([U4, U64]),
+        Some(Core::FullLeftShift64_8) => tuple([U8, U64]),
+        Some(Core::FullLeftShift64_16) => tuple([U16, U64]),
+        Some(Core::FullLeftShift64_32) => tuple([U32, U64]),
+        Some(Core::FullRightShift8_1) => tuple([U8, U1]),
+        Some(Core::FullRightShift8_2) => tuple([U8, U2]),
+        Some(Core::FullRightShift8_4) => tuple([U8, U4]),
+        Some(Core::FullRightShift16_1) => tuple([U16, U1]),
+        Some(Core::FullRightShift16_2) => tuple([U16, U2]),
+        Some(Core::FullRightShift16_4) => tuple([U16, U4]),
+        Some(Core::FullRightShift16_8) => tuple([U16, U8]),
+        Some(Core::FullRightShift32_1) => tuple([U32, U1]),
+        Some(Core::FullRightShift32_2) => tuple([U32, U2]),
+        Some(Core::FullRightShift32_4) => tuple([U32, U4]),
+        Some(Core::FullRightShift32_8) => tuple([U32, U8]),
+        Some(Core::FullRightShift32_16) => tuple([U32, U16]),
+        Some(Core::FullRightShift64_1) => tuple([U64, U1]),
+        Some(Core::FullRightShift64_2) => tuple([U64, U2]),
+        Some(Core::FullRightShift64_4) => tuple([U64, U4]),
+        Some(Core::FullRightShift64_8) => tuple([U64, U8]),
+        Some(Core::FullRightShift64_16) => tuple([U64, U16]),
+        Some(Core::FullRightShift64_32) => tuple([U64, U32]),
+        /*
+         * Arithmetic
+         */
+        Some(Core::Le8)
+        | Some(Core::Lt8)
+        | Some(Core::Le16)
+        | Some(Core::Lt16)
+        | Some(Core::Le32)
+        | Some(Core::Lt32)
+        | Some(Core::Le64)
+        | Some(Core::Lt64)
+        | Some(Core::IsZero8)
+        | Some(Core::IsOne8)
+        | Some(Core::IsZero16)
+        | Some(Core::IsOne16)
+        | Some(Core::IsZero32)
+        | Some(Core::IsOne32)
+        | Some(Core::IsZero64)
+        | Some(Core::IsOne64)
+        | Some(Core::Divides8)
+        | Some(Core::Divides16)
+        | Some(Core::Divides32)
+        | Some(Core::Divides64) => bool(),
+        Some(Core::One8) | Some(Core::Min8) | Some(Core::Max8) | Some(Core::Divide8)
+        | Some(Core::Modulo8) | Some(Core::Median8) => U8.into(),
+        Some(Core::One16)
+        | Some(Core::Min16)
+        | Some(Core::Max16)
+        | Some(Core::Divide16)
+        | Some(Core::Modulo16)
+        | Some(Core::Multiply8)
+        | Some(Core::FullMultiply8)
+        | Some(Core::Median16) => U16.into(),
+        Some(Core::One32)
+        | Some(Core::Min32)
+        | Some(Core::Max32)
+        | Some(Core::Divide32)
+        | Some(Core::Modulo32)
+        | Some(Core::Multiply16)
+        | Some(Core::FullMultiply16)
+        | Some(Core::Median32) => U32.into(),
+        Some(Core::One64)
+        | Some(Core::Min64)
+        | Some(Core::Max64)
+        | Some(Core::Divide64)
+        | Some(Core::Modulo64)
+        | Some(Core::Multiply32)
+        | Some(Core::FullMultiply32)
+        | Some(Core::Median64) => U64.into(),
+        Some(Core::Multiply64) | Some(Core::FullMultiply64) => U128.into(),
+        Some(Core::Increment8)
+        | Some(Core::Negate8)
+        | Some(Core::Decrement8)
+        | Some(Core::Add8)
+        | Some(Core::Subtract8)
+        | Some(Core::FullAdd8)
+        | Some(Core::FullSubtract8)
+        | Some(Core::FullIncrement8)
+        | Some(Core::FullDecrement8) => tuple([bool(), U8.into()]),
+        Some(Core::Increment16)
+        | Some(Core::Negate16)
+        | Some(Core::Decrement16)
+        | Some(Core::Add16)
+        | Some(Core::Subtract16)
+        | Some(Core::FullAdd16)
+        | Some(Core::FullSubtract16)
+        | Some(Core::FullIncrement16)
+        | Some(Core::FullDecrement16) => tuple([bool(), U16.into()]),
+        Some(Core::Increment32)
+        | Some(Core::Negate32)
+        | Some(Core::Decrement32)
+        | Some(Core::Add32)
+        | Some(Core::Subtract32)
+        | Some(Core::FullAdd32)
+        | Some(Core::FullSubtract32)
+        | Some(Core::FullIncrement32)
+        | Some(Core::FullDecrement32) => tuple([bool(), U32.into()]),
+        Some(Core::Increment64)
+        | Some(Core::Negate64)
+        | Some(Core::Decrement64)
+        | Some(Core::Add64)
+        | Some(Core::Subtract64)
+        | Some(Core::FullAdd64)
+        | Some(Core::FullSubtract64)
+        | Some(Core::FullIncrement64)
+        | Some(Core::FullDecrement64) => tuple([bool(), U64.into()]),
+        Some(Core::DivMod8) => tuple([U8, U8]),
+        Some(Core::DivMod16) => tuple([U16, U16]),
+        Some(Core::DivMod32) => tuple([U32, U32]),
+        Some(Core::DivMod64) => tuple([U64, U64]),
+        Some(Core::DivMod128_64) => tuple([U64, U64]),
+        /*
+         * Hash functions
+         */
+        Some(Core::Sha256Iv) | Some(Core::Sha256Block) | Some(Core::Sha256Ctx8Finalize) => {
+            U256.into()
+        }
+        Some(Core::Sha256Ctx8Init)
+        | Some(Core::Sha256Ctx8Add1)
+        | Some(Core::Sha256Ctx8Add2)
+        | Some(Core::Sha256Ctx8Add4)
+        | Some(Core::Sha256Ctx8Add8)
+        | Some(Core::Sha256Ctx8Add16)
+        | Some(Core::Sha256Ctx8Add32)
+        | Some(Core::Sha256Ctx8Add64)
+        | Some(Core::Sha256Ctx8Add128)
+        | Some(Core::Sha256Ctx8Add256)
+        | Some(Core::Sha256Ctx8Add512)
+        | Some(Core::Sha256Ctx8AddBuffer511) => Ctx8.into(),
+        /*
+         * Elliptic curve functions
+         */
+        Some(Core::PointVerify1) | Some(Core::LinearVerify1) => AliasedType::unit(),
+        Some(Core::GejIsInfinity)
+        | Some(Core::GejEquiv)
+        | Some(Core::GejGeEquiv)
+        | Some(Core::GejXEquiv)
+        | Some(Core::GejYIsOdd)
+        | Some(Core::GejIsOnCurve)
+        | Some(Core::GeIsOnCurve)
+        | Some(Core::ScalarIsZero)
+        | Some(Core::FeIsZero)
+        | Some(Core::FeIsOdd) => bool(),
+        Some(Core::GeNegate) | Some(Core::HashToCurve) | Some(Core::Swu) => Ge.into(),
+        Some(Core::Decompress) | Some(Core::GejNormalize) => option(Ge),
+        Some(Core::LinearCombination1)
+        | Some(Core::Scale)
+        | Some(Core::Generate)
+        | Some(Core::GejInfinity)
+        | Some(Core::GejNegate)
+        | Some(Core::GejDouble)
+        | Some(Core::GejAdd)
+        | Some(Core::GejGeAdd)
+        | Some(Core::GejRescale) => Gej.into(),
+        Some(Core::GejGeAddEx) => tuple([Fe, Gej]),
+        Some(Core::ScalarNormalize)
+        | Some(Core::ScalarNegate)
+        | Some(Core::ScalarAdd)
+        | Some(Core::ScalarSquare)
+        | Some(Core::ScalarMultiply)
+        | Some(Core::ScalarMultiplyLambda)
+        | Some(Core::ScalarInvert) => Scalar.into(),
+        Some(Core::FeNormalize)
+        | Some(Core::FeNegate)
+        | Some(Core::FeAdd)
+        | Some(Core::FeSquare)
+        | Some(Core::FeMultiply)
+        | Some(Core::FeMultiplyBeta)
+        | Some(Core::FeInvert) => Fe.into(),
+        Some(Core::FeSquareRoot) => option(Fe),
+        /*
+         * Digital signatures
+         */
+        Some(Core::CheckSigVerify) | Some(Core::Bip0340Verify) => AliasedType::unit(),
+        /*
+         * Bitcoin (without primitives)
+         */
+        Some(Core::ParseLock) => either(Height, Time),
+        Some(Core::ParseSequence) => option(either(Distance, Duration)),
+        Some(Core::TapdataInit) => Ctx8.into(),
+        /*
+         * Script operations
+         */
+        None => {
+            let (get_opcode, get_pubkey) = (
+                CustomJet::from_str("get_opcode_from_script").unwrap(),
+                CustomJet::from_str("get_pubkey_from_script").unwrap(),
+            );
+
+            if jet == get_opcode {
+                U8.into()
+            } else if jet == get_pubkey {
+                Pubkey.into()
+            } else {
+                unreachable!()
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1144,7 +2002,7 @@ mod tests {
     fn compatible_source_type() {
         for jet in CustomJet::all() {
             let resolved_ty = ResolvedType::tuple(
-                source_type(*jet)
+                source_type_elements(*jet)
                     .into_iter()
                     .map(|t| t.resolve_builtin().unwrap()),
             );
@@ -1159,7 +2017,7 @@ mod tests {
     #[test]
     fn compatible_target_type() {
         for jet in CustomJet::all() {
-            let resolved_ty = target_type(*jet).resolve_builtin().unwrap();
+            let resolved_ty = target_type_elements(*jet).resolve_builtin().unwrap();
             let structural_ty = StructuralType::from(&resolved_ty);
             let simplicity_ty = jet.target_ty().to_final();
 

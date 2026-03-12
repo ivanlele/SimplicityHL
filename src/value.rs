@@ -658,7 +658,7 @@ impl Value {
     /// - Witness expressions
     /// - Match expressions
     /// - Call expressions
-    pub fn from_const_expr(expr: &ast::Expression) -> Option<Self> {
+    pub fn from_const_expr<E>(expr: &ast::Expression<E>) -> Option<Self> {
         use ast::ExprTree;
         use ast::SingleExpressionInner as S;
 
@@ -782,9 +782,9 @@ impl Value {
     }
 
     /// Parse a value of the given type from a string.
-    pub fn parse_from_str(s: &str, ty: &ResolvedType) -> Result<Self, RichError> {
+    pub fn parse_from_str<E: 'static>(s: &str, ty: &ResolvedType) -> Result<Self, RichError> {
         let parse_expr = parse::Expression::parse_from_str(s)?;
-        let ast_expr = ast::Expression::analyze_const(&parse_expr, ty)?;
+        let ast_expr = ast::Expression::<E>::analyze_const(&parse_expr, ty)?;
         Self::from_const_expr(&ast_expr)
             .ok_or(Error::ExpressionUnexpectedType(ty.clone()))
             .with_span(s)
@@ -1231,6 +1231,9 @@ mod destruct {
 
 #[cfg(test)]
 mod tests {
+    use simplicity::elements::Transaction;
+    use simplicity::jet::elements::ElementsEnv;
+
     use super::*;
     use crate::parse;
     use crate::types::{StructuralType, TypeConstructible};
@@ -1317,7 +1320,9 @@ mod tests {
 
         for (string, ty, expected_value) in string_ty_value {
             let parse_expr = parse::Expression::parse_from_str(string).unwrap();
-            let ast_expr = ast::Expression::analyze_const(&parse_expr, &ty).unwrap();
+            let ast_expr =
+                ast::Expression::<ElementsEnv<Arc<Transaction>>>::analyze_const(&parse_expr, &ty)
+                    .unwrap();
             let parsed_value = Value::from_const_expr(&ast_expr).unwrap();
             assert_eq!(parsed_value, expected_value);
             assert!(parsed_value.is_of_type(&ty));
