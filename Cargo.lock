@@ -337,7 +337,7 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 [[package]]
 name = "core"
 version = "0.1.0"
-source = "git+https://github.com/BlockstreamResearch/simplicity-unchained.git?rev=03e457e9fed9cb6967a253ec70386b8fb1317f95#03e457e9fed9cb6967a253ec70386b8fb1317f95"
+source = "git+https://github.com/BlockstreamResearch/simplicity-unchained.git?rev=3557bd63fb5d5e72a0468b5f441920f3d93a2f9c#3557bd63fb5d5e72a0468b5f441920f3d93a2f9c"
 dependencies = [
  "dlopen2",
  "hal-simplicity",
